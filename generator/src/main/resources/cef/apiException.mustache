@@ -1,5 +1,9 @@
 package {{apiPackage}}.exception;
 
+import {{apiPackage}}.exception.BadRequestException;
+import {{apiPackage}}.exception.NotFoundException;
+import {{apiPackage}}.exception.InternalServerErrorException;
+
 /**
  * Base exception class for API layer operations.
  *
@@ -56,5 +60,35 @@ public class ApiException extends RuntimeException {
      */
     public int getStatusCode() {
         return statusCode;
+    }
+
+    /**
+     * Creates a BadRequestException (HTTP 400).
+     *
+     * @param message the error message
+     * @return new BadRequestException
+     */
+    public static ApiException badRequest(String message) {
+        return new BadRequestException(message);
+    }
+
+    /**
+     * Creates a NotFoundException (HTTP 404).
+     *
+     * @param message the error message
+     * @return new NotFoundException
+     */
+    public static ApiException notFound(String message) {
+        return new NotFoundException(message);
+    }
+
+    /**
+     * Creates an InternalServerErrorException (HTTP 500).
+     *
+     * @param message the error message
+     * @return new InternalServerErrorException
+     */
+    public static ApiException internalError(String message) {
+        return new InternalServerErrorException(message);
     }
 }

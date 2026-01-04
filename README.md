@@ -7,6 +7,7 @@ OpenAPI Code Generator for Chromium Embedded Framework (CEF) with JetBrains Plat
 - **RouteTree Routing**: Trie-based routing, 2.6x faster than regex
 - **ApiResponse<T>**: Generic response wrapper (like Spring ResponseEntity)
 - **Builder Pattern**: Fluent API for custom routes
+- **Enum Custom Fields**: Auto-detect types (Integer, String, Boolean, etc.) from YAML values
 - **Type-Safe**: No unchecked casts
 - **Zero Dependencies**: No Lombok, Swagger, or Spring
 - **Java 8+ Compatible**: Works with legacy codebases
@@ -85,8 +86,6 @@ val generateApi by tasks.registering(org.openapitools.generator.gradle.plugin.ta
     generatorName.set("cef")
     inputSpec.set("$projectDir/openapi.yaml")
 
-    // Templates are included in JAR, no need to specify templateDir
-
     modelPackage.set("com.example.api.dto")
     apiPackage.set("com.example.api")
 
@@ -157,6 +156,70 @@ public final class ExampleServiceImpl implements ExampleApiService {
     }
 }
 ```
+
+## Enum Custom Fields
+
+Define enums with custom fields in your OpenAPI spec using `x-enum-field-*` extensions. The generator automatically detects field types from YAML values:
+
+```yaml
+TaskStatus:
+  type: string
+  enum:
+    - PENDING
+    - IN_PROGRESS
+    - COMPLETED
+  x-enum-field-displayName:
+    - Pending
+    - In Progress
+    - Completed
+  x-enum-field-value:
+    - pending
+    - in_progress
+    - completed
+  x-enum-field-priority:
+    - 1        # Integer (no quotes)
+    - 2
+    - 3
+  x-enum-field-active:
+    - true     # Boolean
+    - true
+    - false
+```
+
+Generates:
+
+```java
+public enum TaskStatus {
+    PENDING("pending", "Pending", 1, true),
+    IN_PROGRESS("in_progress", "In Progress", 2, true),
+    COMPLETED("completed", "Completed", 3, false);
+
+    private final String value;
+    private final String displayName;
+    private final Integer priority;
+    private final Boolean active;
+
+    TaskStatus(String value, String displayName, Integer priority, Boolean active) {
+        this.value = value;
+        this.displayName = displayName;
+        this.priority = priority;
+        this.active = active;
+    }
+
+    public String getValue() { return value; }
+    public String getDisplayName() { return displayName; }
+    public Integer getPriority() { return priority; }
+    public Boolean getActive() { return active; }
+}
+```
+
+Type detection rules:
+- `1, 2, 3` (no quotes) → `Integer`
+- `"1", "2", "3"` (with quotes) → `String`
+- `true, false` → `Boolean`
+- `1.5, 2.3` → `Double`
+
+Supported types: `Integer`, `Long`, `Double`, `Float`, `Boolean`, `String`, `BigDecimal`, `BigInteger`
 
 ## Generated Structure
 

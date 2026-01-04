@@ -1,0 +1,36 @@
+package {{package}};
+
+/**
+ * {{classname}}{{#description}} - {{{.}}}{{/description}}
+ * Auto-generated from OpenAPI specification.
+ */
+{{#models}}
+{{#model}}
+public enum {{classname}} {
+{{#allowableValues}}
+{{#enumVars}}
+    {{name}}{{#constructorArgs}}({{{constructorArgs}}}){{/constructorArgs}}{{^-last}},{{/-last}}{{#-last}}{{#constructorArgs}};{{/constructorArgs}}{{/-last}}
+{{/enumVars}}
+{{/allowableValues}}
+
+{{#vendorExtensions.enumFields}}
+    private final {{type}} {{name}};
+{{/vendorExtensions.enumFields}}
+{{#vendorExtensions.enumFields.0}}
+
+    {{classname}}({{#vendorExtensions.enumFields}}{{type}} {{name}}{{^-last}}, {{/-last}}{{/vendorExtensions.enumFields}}) {
+{{#vendorExtensions.enumFields}}
+        this.{{name}} = {{name}};
+{{/vendorExtensions.enumFields}}
+    }
+
+{{#vendorExtensions.enumFields}}
+    public {{type}} get{{capitalizedName}}() {
+        return {{name}};
+    }
+
+{{/vendorExtensions.enumFields}}
+{{/vendorExtensions.enumFields.0}}
+}
+{{/model}}
+{{/models}}

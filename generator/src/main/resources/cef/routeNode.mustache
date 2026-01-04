@@ -1,8 +1,11 @@
 package {{apiPackage}}.routing;
 
 import {{apiPackage}}.protocol.HttpMethod;
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.protocol.ApiResponse;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 /**
  * Node in the Trie-based route tree structure.
@@ -68,7 +71,7 @@ final class RouteNode {
      * Map of HTTP method to handler function.
      * Only populated for terminal nodes (end of a route pattern).
      */
-    private final Map<HttpMethod, Object> handlers = new HashMap<>();
+    private final Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> handlers = new HashMap<>();
 
     /**
      * Create a literal node representing a fixed path segment.
@@ -156,7 +159,7 @@ final class RouteNode {
      * @param method  HTTP method (GET, POST, etc.)
      * @param handler request handler function
      */
-    void addHandler(HttpMethod method, Object handler) {
+    void addHandler(HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
         handlers.put(method, handler);
     }
 
@@ -166,7 +169,7 @@ final class RouteNode {
      * @param method HTTP method to look up
      * @return handler function, or null if no handler exists for this method
      */
-    Object getHandler(HttpMethod method) {
+    Function<ApiRequest, ApiResponse<?>> getHandler(HttpMethod method) {
         return handlers.get(method);
     }
 }

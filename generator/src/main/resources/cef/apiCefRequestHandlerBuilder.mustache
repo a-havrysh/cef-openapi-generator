@@ -20,18 +20,18 @@ import java.util.function.Function;
  *
  * <p>Usage example:</p>
  * <pre>{@code
- * ApiCefRequestHandler handler = ApiApiCefRequestHandlerBuilder.builder(project)
+ * ApiCefRequestHandler handler = ApiCefRequestHandlerBuilder.builder(project)
  *     .withApiRoutes()
  *     .withPrefix("/custom", request -> ApiResponse.ok("Custom response"))
  *     .build();
  * }</pre>
  */
-public final class ApiApiCefRequestHandlerBuilder {
+public final class ApiCefRequestHandlerBuilder {
 
     private final Project project;
     private final RouteTree routeTree = new RouteTree();
 
-    private ApiApiCefRequestHandlerBuilder(Project project) {
+    private ApiCefRequestHandlerBuilder(Project project) {
         this.project = project;
     }
 
@@ -39,10 +39,10 @@ public final class ApiApiCefRequestHandlerBuilder {
      * Create a new builder instance.
      *
      * @param project IntelliJ project instance
-     * @return new ApiApiCefRequestHandlerBuilder
+     * @return new ApiCefRequestHandlerBuilder
      */
-    public static ApiApiCefRequestHandlerBuilder builder(Project project) {
-        return new ApiApiCefRequestHandlerBuilder(project);
+    public static ApiCefRequestHandlerBuilder builder(Project project) {
+        return new ApiCefRequestHandlerBuilder(project);
     }
 
     /**
@@ -51,7 +51,7 @@ public final class ApiApiCefRequestHandlerBuilder {
      *
      * @return this builder for chaining
      */
-    public ApiApiCefRequestHandlerBuilder withApiRoutes() {
+    public ApiCefRequestHandlerBuilder withApiRoutes() {
 {{#apiInfo}}
 {{#apis}}
 {{#operations}}
@@ -75,7 +75,7 @@ public final class ApiApiCefRequestHandlerBuilder {
      * @param handler function to process matching requests
      * @return this builder for chaining
      */
-    public ApiApiCefRequestHandlerBuilder withPrefix(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
+    public ApiCefRequestHandlerBuilder withPrefix(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addPrefixRoute(prefix, handler);
         return this;
     }
@@ -88,7 +88,7 @@ public final class ApiApiCefRequestHandlerBuilder {
      * @param handler function to process matching requests
      * @return this builder for chaining
      */
-    public ApiApiCefRequestHandlerBuilder withExact(String path, Function<ApiRequest, ApiResponse<?>> handler) {
+    public ApiCefRequestHandlerBuilder withExact(String path, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addExactRoute(path, handler);
         return this;
     }
@@ -101,7 +101,7 @@ public final class ApiApiCefRequestHandlerBuilder {
      * @param handler   function to process matching requests
      * @return this builder for chaining
      */
-    public ApiApiCefRequestHandlerBuilder withContains(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
+    public ApiCefRequestHandlerBuilder withContains(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addContainsRoute(substring, handler);
         return this;
     }

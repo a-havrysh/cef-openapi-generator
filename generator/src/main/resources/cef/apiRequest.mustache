@@ -162,9 +162,9 @@ public final class ApiRequest {
 
     /**
      * Sets path variables extracted from URL pattern matching.
-     * Package-private, called by handler during request processing.
+     * Called by handler during request processing.
      */
-    void setPathVariables(Map<String, String> pathVariables) {
+    public void setPathVariables(Map<String, String> pathVariables) {
         this.pathVariables = pathVariables != null ? pathVariables : Collections.emptyMap();
     }
 
@@ -174,17 +174,20 @@ public final class ApiRequest {
             return null;
         }
 
-        java.util.Vector<CefPostDataElement> elements = postData.getElements();
-        if (elements == null || elements.isEmpty()) {
+        java.util.Vector<CefPostDataElement> elements = new java.util.Vector<>();
+        postData.getElements(elements);
+        if (elements.isEmpty()) {
             return null;
         }
 
         try {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             for (CefPostDataElement element : elements) {
-                byte[] bytes = element.getBytes();
-                if (bytes != null) {
-                    output.write(bytes);
+                // CEF API requires pre-allocated buffer
+                byte[] buffer = new byte[65536]; // 64KB buffer
+                int bytesRead = element.getBytes(buffer.length, buffer);
+                if (bytesRead > 0) {
+                    output.write(buffer, 0, bytesRead);
                 }
             }
             return output.toString(StandardCharsets.UTF_8);

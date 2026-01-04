@@ -87,6 +87,11 @@ public final class RouteTree {
     private final Map<String, Function<ApiRequest, ApiResponse<?>>> containsRoutes = new HashMap<>();
 
     /**
+     * Fallback handler for unmatched routes.
+     */
+    private Function<ApiRequest, ApiResponse<?>> fallbackHandler;
+
+    /**
      * Add a route pattern with path variables to the tree.
      * If pattern contains template variables (e.g., {id}), it's stored in the Trie.
      * Otherwise, stored in exact routes map for O(1) lookup.

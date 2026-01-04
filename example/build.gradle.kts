@@ -1,9 +1,11 @@
 buildscript {
     repositories {
+        mavenLocal()
         mavenCentral()
     }
     dependencies {
         classpath("org.openapitools:openapi-generator-gradle-plugin:7.18.0")
+        classpath("io.github.cef:generator:1.0.3")
     }
 }
 
@@ -19,7 +21,6 @@ repositories {
 
 dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.2")
-    implementation(project(":generator"))
 }
 
 val generateApi by tasks.registering(org.openapitools.generator.gradle.plugin.tasks.GenerateTask::class) {

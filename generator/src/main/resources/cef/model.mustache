@@ -1,13 +1,11 @@
 package {{package}};
 
+{{^isEnum}}
 import java.util.*;
 {{#imports}}
-{{^contains(import, 'swagger')}}
-{{^contains(import, 'JsonNullable')}}
 import {{import}};
-{{/contains(import, 'JsonNullable')}}
-{{/contains(import, 'swagger')}}
 {{/imports}}
+{{/isEnum}}
 
 /**
  * {{classname}}{{#description}} - {{{.}}}{{/description}}
@@ -19,33 +17,28 @@ import {{import}};
 public enum {{classname}} {
 {{#allowableValues}}
 {{#enumVars}}
-    {{name}}{{#displayName}}("{{{displayName}}}"{{#enumValue}}, "{{{enumValue}}}"{{/enumValue}}){{/displayName}}{{^-last}},{{/-last}}{{#-last}}{{#displayName}};{{/displayName}}{{/-last}}
+    {{name}}{{#constructorArgs}}({{{constructorArgs}}}){{/constructorArgs}}{{^-last}},{{/-last}}{{#-last}}{{#constructorArgs}};{{/constructorArgs}}{{/-last}}
 {{/enumVars}}
 {{/allowableValues}}
-{{#vendorExtensions.hasDisplayNames}}
 
-    private final String displayName;
-{{#vendorExtensions.hasValues}}
-    private final String value;
-{{/vendorExtensions.hasValues}}
+{{#vendorExtensions.enumFields}}
+    private final {{type}} {{name}};
+{{/vendorExtensions.enumFields}}
+{{#vendorExtensions.enumFields.0}}
 
-    {{classname}}(String displayName{{#vendorExtensions.hasValues}}, String value{{/vendorExtensions.hasValues}}) {
-        this.displayName = displayName;
-{{#vendorExtensions.hasValues}}
-        this.value = value;
-{{/vendorExtensions.hasValues}}
+    {{classname}}({{#vendorExtensions.enumFields}}{{type}} {{name}}{{^-last}}, {{/-last}}{{/vendorExtensions.enumFields}}) {
+{{#vendorExtensions.enumFields}}
+        this.{{name}} = {{name}};
+{{/vendorExtensions.enumFields}}
     }
 
-    public String getDisplayName() {
-        return displayName;
+{{#vendorExtensions.enumFields}}
+    public {{type}} get{{capitalizedName}}() {
+        return {{name}};
     }
-{{#vendorExtensions.hasValues}}
 
-    public String getValue() {
-        return value;
-    }
-{{/vendorExtensions.hasValues}}
-{{/vendorExtensions.hasDisplayNames}}
+{{/vendorExtensions.enumFields}}
+{{/vendorExtensions.enumFields.0}}
 }
 {{/isEnum}}
 {{^isEnum}}

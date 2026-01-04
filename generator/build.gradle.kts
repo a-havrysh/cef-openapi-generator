@@ -4,13 +4,15 @@ plugins {
 }
 
 group = "io.github.cef"
-version = "1.0.2"
+version = "1.0.3"
 
 dependencies {
     implementation("org.openapitools:openapi-generator:7.18.0")
 }
 
 java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
     withJavadocJar()
 }

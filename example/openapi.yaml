@@ -21,3 +21,34 @@ components:
       properties:
         text:
           type: string
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+
+    TaskStatus:
+      type: string
+      description: Status of a task with multiple custom fields
+      enum:
+        - PENDING
+        - IN_PROGRESS
+        - COMPLETED
+        - CANCELLED
+      x-enum-field-displayName:
+        - Pending
+        - In Progress
+        - Completed
+        - Cancelled
+      x-enum-field-value:
+        - pending
+        - in_progress
+        - completed
+        - cancelled
+      x-enum-field-priority:
+        - 1
+        - 2
+        - 3
+        - 4
+      x-enum-field-active:
+        - true
+        - true
+        - false
+        - false
