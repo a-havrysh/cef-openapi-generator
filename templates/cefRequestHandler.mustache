@@ -12,21 +12,59 @@ import org.cef.misc.BoolRef;
 
 /**
  * Main CEF Request Handler with builder support.
- * Use builder() for flexible configuration with custom routes.
+ * Intercepts HTTP requests in CEF browser and delegates to registered route handlers.
  * Auto-generated from OpenAPI specification.
+ *
+ * <p>This handler extends {@link CefRequestHandlerAdapter} and provides routing
+ * capabilities for API endpoints. Use the builder pattern for configuration.</p>
+ *
+ * <p>Usage example:</p>
+ * <pre>{@code
+ * CefRequestHandler handler = CefRequestHandler.builder(project)
+ *     .withApiRoutes()
+ *     .build();
+ * }</pre>
+ *
+ * @see CefRequestHandlerBuilder
+ * @see ApiResourceRequestHandler
  */
 public final class CefRequestHandler extends CefRequestHandlerAdapter {
 
     private final ApiResourceRequestHandler apiHandler;
 
+    /**
+     * Package-private constructor for builder use only.
+     *
+     * @param project   IntelliJ project instance
+     * @param routeTree configured route tree with all registered handlers
+     */
     CefRequestHandler(Project project, RouteTree routeTree) {
         this.apiHandler = new ApiResourceRequestHandler(project, routeTree);
     }
 
+    /**
+     * Create a new builder for configuring CefRequestHandler.
+     *
+     * @param project IntelliJ project instance
+     * @return new CefRequestHandlerBuilder
+     */
     public static CefRequestHandlerBuilder builder(Project project) {
         return CefRequestHandlerBuilder.builder(project);
     }
 
+    /**
+     * Handle resource requests by routing to registered handlers.
+     * Called by CEF when browser makes an HTTP request.
+     *
+     * @param browser               CEF browser instance
+     * @param frame                 CEF frame making the request
+     * @param request               HTTP request details
+     * @param isNavigation          true if this is a navigation request
+     * @param isDownload            true if this is a download request
+     * @param requestInitiator      origin of the request
+     * @param disableDefaultHandling flag to disable default CEF handling
+     * @return resource handler if route matches, null otherwise
+     */
     @Override
     public CefResourceRequestHandler getResourceRequestHandler(
             CefBrowser browser,
@@ -47,6 +85,12 @@ public final class CefRequestHandler extends CefRequestHandlerAdapter {
         return null;
     }
 
+    /**
+     * Extract path component from full URL.
+     *
+     * @param url full URL string
+     * @return path component, or empty string if parsing fails
+     */
     private String extractPath(String url) {
         try {
             java.net.URI uri = new java.net.URI(url);

@@ -17,6 +17,14 @@ import java.util.function.Function;
  * Builder for CefRequestHandler with fluent API.
  * Allows adding custom routes alongside generated API routes.
  * Auto-generated from OpenAPI specification.
+ *
+ * <p>Usage example:</p>
+ * <pre>{@code
+ * CefRequestHandler handler = CefRequestHandlerBuilder.builder(project)
+ *     .withApiRoutes()
+ *     .withPrefix("/custom", request -> ApiResponse.ok("Custom response"))
+ *     .build();
+ * }</pre>
  */
 public final class CefRequestHandlerBuilder {
 
@@ -27,12 +35,21 @@ public final class CefRequestHandlerBuilder {
         this.project = project;
     }
 
+    /**
+     * Create a new builder instance.
+     *
+     * @param project IntelliJ project instance
+     * @return new CefRequestHandlerBuilder
+     */
     public static CefRequestHandlerBuilder builder(Project project) {
         return new CefRequestHandlerBuilder(project);
     }
 
     /**
-     * Add all generated API routes.
+     * Add all generated API routes from OpenAPI specification.
+     * Registers route handlers for each operation defined in the spec.
+     *
+     * @return this builder for chaining
      */
     public CefRequestHandlerBuilder withApiRoutes() {
 {{#apiInfo}}
@@ -51,7 +68,12 @@ public final class CefRequestHandlerBuilder {
     }
 
     /**
-     * Add prefix route (matches if path starts with prefix).
+     * Add prefix route that matches if path starts with the specified prefix.
+     * Useful for handling entire API namespaces or static file directories.
+     *
+     * @param prefix  URL prefix to match (e.g., "/api/v1", "/static")
+     * @param handler function to process matching requests
+     * @return this builder for chaining
      */
     public CefRequestHandlerBuilder withPrefix(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addPrefixRoute(prefix, handler);
@@ -59,7 +81,12 @@ public final class CefRequestHandlerBuilder {
     }
 
     /**
-     * Add exact route (matches if path equals exactly).
+     * Add exact route that matches only if path equals exactly.
+     * Provides precise routing for specific endpoints.
+     *
+     * @param path    exact URL path to match (e.g., "/health", "/api/status")
+     * @param handler function to process matching requests
+     * @return this builder for chaining
      */
     public CefRequestHandlerBuilder withExact(String path, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addExactRoute(path, handler);
@@ -67,7 +94,12 @@ public final class CefRequestHandlerBuilder {
     }
 
     /**
-     * Add contains route (matches if path contains substring).
+     * Add contains route that matches if path contains the specified substring.
+     * Useful for wildcard-like matching patterns.
+     *
+     * @param substring substring to search for in path (e.g., ".json", "/admin/")
+     * @param handler   function to process matching requests
+     * @return this builder for chaining
      */
     public CefRequestHandlerBuilder withContains(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addContainsRoute(substring, handler);
@@ -75,7 +107,10 @@ public final class CefRequestHandlerBuilder {
     }
 
     /**
-     * Build CefRequestHandler with configured routes.
+     * Build CefRequestHandler with all configured routes.
+     * Creates the final request handler ready for use with CEF browser.
+     *
+     * @return configured CefRequestHandler instance
      */
     public CefRequestHandler build() {
         return new CefRequestHandler(project, routeTree);

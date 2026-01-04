@@ -17,7 +17,22 @@ import static java.nio.ByteBuffer.wrap;
 
 /**
  * CEF Resource Handler that converts ApiResponse to CEF format.
+ * Handles serialization of response bodies and streaming data to CEF browser.
  * Auto-generated from OpenAPI specification.
+ *
+ * <p>Supports multiple response body types:</p>
+ * <ul>
+ *   <li>null - empty response with 204 No Content</li>
+ *   <li>byte[] - raw binary data</li>
+ *   <li>String - text data encoded as UTF-8</li>
+ *   <li>Objects - serialized to JSON using Jackson</li>
+ * </ul>
+ *
+ * <p>This class manages the complete lifecycle of a CEF resource response,
+ * including headers, status codes, MIME types, and data streaming.</p>
+ *
+ * @see ApiResponse
+ * @see CefResourceHandlerAdapter
  */
 final class ApiResponseHandler extends CefResourceHandlerAdapter {
 
@@ -28,6 +43,14 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
     private final int statusCode;
     private final String statusText;
 
+    /**
+     * Private constructor for factory methods only.
+     *
+     * @param data        response body as byte buffer
+     * @param contentType MIME type of response
+     * @param statusCode  HTTP status code
+     * @param statusText  HTTP status text
+     */
     private ApiResponseHandler(ByteBuffer data, String contentType, int statusCode, String statusText) {
         this.data = data;
         this.contentType = contentType;
@@ -35,6 +58,21 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
         this.statusText = statusText;
     }
 
+    /**
+     * Create CEF resource handler from ApiResponse.
+     * Automatically serializes body based on type.
+     *
+     * <p>Serialization strategy:</p>
+     * <ul>
+     *   <li>null body - returns empty handler</li>
+     *   <li>byte[] - uses directly</li>
+     *   <li>String - encodes as UTF-8</li>
+     *   <li>Object - serializes to JSON</li>
+     * </ul>
+     *
+     * @param response ApiResponse to convert
+     * @return CEF resource handler, or empty handler if response is null
+     */
     public static ApiResponseHandler from(ApiResponse<?> response) {
         if (response == null) {
             return empty();
@@ -67,10 +105,23 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
         }
     }
 
+    /**
+     * Create empty response handler (204 No Content).
+     *
+     * @return handler with no body and 204 status
+     */
     public static ApiResponseHandler empty() {
         return new ApiResponseHandler(wrap(new byte[0]), "text/plain", 204, "No Content");
     }
 
+    /**
+     * Create error response handler with JSON error body.
+     * Error body includes status, message, and timestamp.
+     *
+     * @param statusCode HTTP error status code (e.g., 404, 500)
+     * @param message    error message to include in response
+     * @return handler with JSON error response
+     */
     public static ApiResponseHandler error(int statusCode, String message) {
         ErrorResponse errorResponse = new ErrorResponse(statusCode, message);
         try {
@@ -84,12 +135,28 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
         }
     }
 
+    /**
+     * Called by CEF to start processing the request.
+     * Always returns true to indicate handler will provide data.
+     *
+     * @param request  CEF request object
+     * @param callback callback to signal continuation
+     * @return true to indicate processing will continue
+     */
     @Override
     public boolean processRequest(CefRequest request, CefCallback callback) {
         callback.Continue();
         return true;
     }
 
+    /**
+     * Called by CEF to get response headers and metadata.
+     * Sets status code, MIME type, and content length.
+     *
+     * @param response       CEF response object to populate
+     * @param responseLength output parameter for content length
+     * @param redirectUrl    output parameter for redirect URL (unused)
+     */
     @Override
     public void getResponseHeaders(CefResponse response, IntRef responseLength, StringRef redirectUrl) {
         response.setStatus(statusCode);
@@ -98,6 +165,16 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
         responseLength.set(data.remaining());
     }
 
+    /**
+     * Called by CEF to read response body data.
+     * Streams data in chunks as requested by browser.
+     *
+     * @param buffer      buffer to write data into
+     * @param bytesToRead maximum bytes to read
+     * @param bytesRead   output parameter for actual bytes read
+     * @param callback    callback for async operations (unused)
+     * @return true if more data available, false when complete
+     */
     @Override
     public boolean readResponse(byte[] buffer, int bytesToRead, IntRef bytesRead, CefCallback callback) {
         int toRead = min(bytesToRead, data.remaining());
@@ -106,25 +183,50 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
         return toRead > 0;
     }
 
+    /**
+     * Error response structure for JSON serialization.
+     * Contains status code, error message, and timestamp.
+     */
     private static final class ErrorResponse {
         private final int status;
         private final String message;
         private final long timestamp;
 
+        /**
+         * Create error response with current timestamp.
+         *
+         * @param status  HTTP status code
+         * @param message error message
+         */
         ErrorResponse(int status, String message) {
             this.status = status;
             this.message = message;
             this.timestamp = System.currentTimeMillis();
         }
 
+        /**
+         * Get HTTP status code.
+         *
+         * @return status code
+         */
         public int getStatus() {
             return status;
         }
 
+        /**
+         * Get error message.
+         *
+         * @return error message
+         */
         public String getMessage() {
             return message;
         }
 
+        /**
+         * Get timestamp when error occurred.
+         *
+         * @return Unix timestamp in milliseconds
+         */
         public long getTimestamp() {
             return timestamp;
         }

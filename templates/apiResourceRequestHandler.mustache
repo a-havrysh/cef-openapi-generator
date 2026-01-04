@@ -23,17 +23,53 @@ import java.util.function.Function;
  * Single CEF Resource Request Handler for all APIs.
  * Uses RouteTree for efficient routing, converts ApiResponse to CEF format.
  * Auto-generated from OpenAPI specification.
+ *
+ * <p>This handler processes matched API requests by:</p>
+ * <ul>
+ *   <li>Converting CEF request to ApiRequest</li>
+ *   <li>Finding matching route handler in RouteTree</li>
+ *   <li>Extracting path variables from URL patterns</li>
+ *   <li>Executing the handler function</li>
+ *   <li>Converting ApiResponse to CEF ResourceHandler</li>
+ *   <li>Handling errors with appropriate HTTP status codes</li>
+ * </ul>
+ *
+ * @see ApiRequest
+ * @see ApiResponse
+ * @see ApiResponseHandler
+ * @see RouteTree
  */
 public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAdapter {
 
     private final Project project;
     private final RouteTree routeTree;
 
+    /**
+     * Package-private constructor for CefRequestHandler use only.
+     *
+     * @param project   IntelliJ project instance for service access
+     * @param routeTree configured route tree with all registered handlers
+     */
     public ApiResourceRequestHandler(Project project, RouteTree routeTree) {
         this.project = project;
         this.routeTree = routeTree;
     }
 
+    /**
+     * Process resource request by matching route and executing handler.
+     * Converts ApiResponse to CEF ResourceHandler format.
+     *
+     * <p>Error handling:</p>
+     * <ul>
+     *   <li>{@link ApiException} - returns error with exception's status code</li>
+     *   <li>Other exceptions - returns 500 Internal Server Error</li>
+     * </ul>
+     *
+     * @param browser    CEF browser instance
+     * @param frame      CEF frame making the request
+     * @param cefRequest HTTP request details
+     * @return CEF resource handler with response data, or error handler if processing fails
+     */
     @Override
     public CefResourceHandler getResourceHandler(CefBrowser browser, CefFrame frame, CefRequest cefRequest) {
         ApiRequest request = new ApiRequest(cefRequest, browser, frame);
