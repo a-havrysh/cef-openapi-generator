@@ -179,6 +179,16 @@ public final class RouteTree {
     }
 
     /**
+     * Set fallback handler (called when no routes match).
+     * Useful for serving static files or default responses.
+     *
+     * @param handler fallback handler function
+     */
+    public void setFallback(Function<ApiRequest, ApiResponse<?>> handler) {
+        this.fallbackHandler = handler;
+    }
+
+    /**
      * Match a request path and HTTP method to a registered route handler.
      * Tries strategies in order: cache lookup, pattern routes, exact routes,
      * prefix routes, contains routes.
@@ -224,6 +234,11 @@ public final class RouteTree {
             if (path.contains(entry.getKey())) {
                 return new MatchResult(entry.getValue(), Map.of());
             }
+        }
+
+        // 5. Fallback handler
+        if (fallbackHandler != null) {
+            return new MatchResult(fallbackHandler, Map.of());
         }
 
         return null;
