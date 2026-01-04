@@ -5,7 +5,7 @@ import {{apiPackage}}.routing.RouteTree;
 import {{apiPackage}}.protocol.HttpMethod;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
-import org.cef.handler.CefRequestHandlerAdapter;
+import org.cef.handler.ApiCefRequestHandlerAdapter;
 import org.cef.handler.CefResourceRequestHandler;
 import org.cef.network.CefRequest;
 import org.cef.misc.BoolRef;
@@ -15,20 +15,20 @@ import org.cef.misc.BoolRef;
  * Intercepts HTTP requests in CEF browser and delegates to registered route handlers.
  * Auto-generated from OpenAPI specification.
  *
- * <p>This handler extends {@link CefRequestHandlerAdapter} and provides routing
+ * <p>This handler extends {@link ApiCefRequestHandlerAdapter} and provides routing
  * capabilities for API endpoints. Use the builder pattern for configuration.</p>
  *
  * <p>Usage example:</p>
  * <pre>{@code
- * CefRequestHandler handler = CefRequestHandler.builder(project)
+ * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
  *     .withApiRoutes()
  *     .build();
  * }</pre>
  *
- * @see CefRequestHandlerBuilder
+ * @see ApiApiCefRequestHandlerBuilder
  * @see ApiResourceRequestHandler
  */
-public final class CefRequestHandler extends CefRequestHandlerAdapter {
+public final class ApiCefRequestHandler extends ApiCefRequestHandlerAdapter {
 
     private final ApiResourceRequestHandler apiHandler;
 
@@ -38,18 +38,18 @@ public final class CefRequestHandler extends CefRequestHandlerAdapter {
      * @param project   IntelliJ project instance
      * @param routeTree configured route tree with all registered handlers
      */
-    CefRequestHandler(Project project, RouteTree routeTree) {
+    ApiCefRequestHandler(Project project, RouteTree routeTree) {
         this.apiHandler = new ApiResourceRequestHandler(project, routeTree);
     }
 
     /**
-     * Create a new builder for configuring CefRequestHandler.
+     * Create a new builder for configuring ApiCefRequestHandler.
      *
      * @param project IntelliJ project instance
-     * @return new CefRequestHandlerBuilder
+     * @return new ApiApiCefRequestHandlerBuilder
      */
-    public static CefRequestHandlerBuilder builder(Project project) {
-        return CefRequestHandlerBuilder.builder(project);
+    public static ApiApiCefRequestHandlerBuilder builder(Project project) {
+        return ApiApiCefRequestHandlerBuilder.builder(project);
     }
 
     /**

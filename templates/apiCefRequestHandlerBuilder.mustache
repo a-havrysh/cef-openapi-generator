@@ -14,24 +14,24 @@ import {{apiPackage}}.service.{{classname}}Service;
 import java.util.function.Function;
 
 /**
- * Builder for CefRequestHandler with fluent API.
+ * Builder for ApiCefRequestHandler with fluent API.
  * Allows adding custom routes alongside generated API routes.
  * Auto-generated from OpenAPI specification.
  *
  * <p>Usage example:</p>
  * <pre>{@code
- * CefRequestHandler handler = CefRequestHandlerBuilder.builder(project)
+ * ApiCefRequestHandler handler = ApiApiCefRequestHandlerBuilder.builder(project)
  *     .withApiRoutes()
  *     .withPrefix("/custom", request -> ApiResponse.ok("Custom response"))
  *     .build();
  * }</pre>
  */
-public final class CefRequestHandlerBuilder {
+public final class ApiApiCefRequestHandlerBuilder {
 
     private final Project project;
     private final RouteTree routeTree = new RouteTree();
 
-    private CefRequestHandlerBuilder(Project project) {
+    private ApiApiCefRequestHandlerBuilder(Project project) {
         this.project = project;
     }
 
@@ -39,10 +39,10 @@ public final class CefRequestHandlerBuilder {
      * Create a new builder instance.
      *
      * @param project IntelliJ project instance
-     * @return new CefRequestHandlerBuilder
+     * @return new ApiApiCefRequestHandlerBuilder
      */
-    public static CefRequestHandlerBuilder builder(Project project) {
-        return new CefRequestHandlerBuilder(project);
+    public static ApiApiCefRequestHandlerBuilder builder(Project project) {
+        return new ApiApiCefRequestHandlerBuilder(project);
     }
 
     /**
@@ -51,7 +51,7 @@ public final class CefRequestHandlerBuilder {
      *
      * @return this builder for chaining
      */
-    public CefRequestHandlerBuilder withApiRoutes() {
+    public ApiApiCefRequestHandlerBuilder withApiRoutes() {
 {{#apiInfo}}
 {{#apis}}
 {{#operations}}
@@ -75,7 +75,7 @@ public final class CefRequestHandlerBuilder {
      * @param handler function to process matching requests
      * @return this builder for chaining
      */
-    public CefRequestHandlerBuilder withPrefix(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
+    public ApiApiCefRequestHandlerBuilder withPrefix(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addPrefixRoute(prefix, handler);
         return this;
     }
@@ -88,7 +88,7 @@ public final class CefRequestHandlerBuilder {
      * @param handler function to process matching requests
      * @return this builder for chaining
      */
-    public CefRequestHandlerBuilder withExact(String path, Function<ApiRequest, ApiResponse<?>> handler) {
+    public ApiApiCefRequestHandlerBuilder withExact(String path, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addExactRoute(path, handler);
         return this;
     }
@@ -101,18 +101,18 @@ public final class CefRequestHandlerBuilder {
      * @param handler   function to process matching requests
      * @return this builder for chaining
      */
-    public CefRequestHandlerBuilder withContains(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
+    public ApiApiCefRequestHandlerBuilder withContains(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
         routeTree.addContainsRoute(substring, handler);
         return this;
     }
 
     /**
-     * Build CefRequestHandler with all configured routes.
+     * Build ApiCefRequestHandler with all configured routes.
      * Creates the final request handler ready for use with CEF browser.
      *
-     * @return configured CefRequestHandler instance
+     * @return configured ApiCefRequestHandler instance
      */
-    public CefRequestHandler build() {
-        return new CefRequestHandler(project, routeTree);
+    public ApiCefRequestHandler build() {
+        return new ApiCefRequestHandler(project, routeTree);
     }
 }
