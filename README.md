@@ -50,7 +50,7 @@ To create a GitHub Personal Access Token:
 ```gradle
 buildscript {
     dependencies {
-        classpath("io.github.cef:generator:1.0.0")
+        classpath("io.github.cef:generator:1.0.4")
     }
 }
 
@@ -72,7 +72,7 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-        classpath("io.github.cef:generator:1.0.0")
+        classpath("io.github.cef:generator:1.0.4")
     }
 }
 ```
@@ -134,7 +134,26 @@ var handler = ApiCefRequestHandler.builder(project)
         return ApiResponse.ok(data, ContentTypeResolver.resolve(path));
     })
     .build();
+
+// With URL filtering (auto from OpenAPI servers)
+var handler = ApiCefRequestHandler.builder(project)
+    .withUrlFilter()  // Only handles URLs from 'servers' section
+    .withApiRoutes()
+    .build();
+
+// With URL filtering (manual prefixes)
+var handler = ApiCefRequestHandler.builder(project)
+    .withUrlFilter("http://localhost:5173")
+    .withApiRoutes()
+    .withPrefix("/static", ...)
+    .build();
 ```
+
+**URL Filtering:**
+- `withUrlFilter()` - automatically uses URLs from OpenAPI `servers` section
+- `withUrlFilter(String... prefixes)` - manually specify allowed URL prefixes
+- Without filter - handler processes all requests (default)
+- With filter - handler only processes matching URLs, returns `null` for others (browser handles them)
 
 ### Implement Services
 

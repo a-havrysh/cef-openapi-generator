@@ -4,6 +4,7 @@ import org.openapitools.codegen.CodegenConfig;
 import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.SupportingFile;
 import org.openapitools.codegen.languages.AbstractJavaCodegen;
+import io.swagger.v3.oas.models.servers.Server;
 
 import java.io.File;
 import java.util.List;
@@ -282,9 +283,21 @@ public class CefCodegen extends AbstractJavaCodegen implements CodegenConfig {
 
     @Override
     public Map<String, Object> postProcessSupportingFileData(Map<String, Object> bundle) {
-        // The bundle already contains apiInfo with all APIs from the OpenAPI spec
-        // We just need to ensure it's available for the registrator.mustache template
-        // The DefaultGenerator automatically populates this data structure
-        return super.postProcessSupportingFileData(bundle);
+        bundle = super.postProcessSupportingFileData(bundle);
+
+        // Extract server URLs from OpenAPI spec for URL filtering
+        if (openAPI != null && openAPI.getServers() != null && !openAPI.getServers().isEmpty()) {
+            List<String> serverUrls = openAPI.getServers().stream()
+                .map(Server::getUrl)
+                .filter(url -> url != null && !url.isEmpty())
+                .collect(Collectors.toList());
+
+            if (!serverUrls.isEmpty()) {
+                bundle.put("serverUrls", serverUrls);
+                bundle.put("hasServers", true);
+            }
+        }
+
+        return bundle;
     }
 }

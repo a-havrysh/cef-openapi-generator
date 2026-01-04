@@ -8,6 +8,7 @@ import org.cef.browser.CefFrame;
 import org.cef.handler.CefRequestHandlerAdapter;
 import org.cef.handler.CefResourceRequestHandler;
 import org.cef.network.CefRequest;
+import java.util.List;
 import org.cef.misc.BoolRef;
 
 /**
@@ -32,16 +33,19 @@ public final class ApiCefRequestHandler extends CefRequestHandlerAdapter {
 
     private final ApiResourceRequestHandler apiHandler;
     private final RouteTree routeTree;
+    private final List<String> urlPrefixes;
 
     /**
      * Package-private constructor for builder use only.
      *
-     * @param project   IntelliJ project instance
-     * @param routeTree configured route tree with all registered handlers
+     * @param project     IntelliJ project instance
+     * @param routeTree   configured route tree with all registered handlers
+     * @param urlPrefixes allowed URL prefixes for filtering (null = accept all URLs)
      */
-    ApiCefRequestHandler(Project project, RouteTree routeTree) {
+    ApiCefRequestHandler(Project project, RouteTree routeTree, List<String> urlPrefixes) {
         this.apiHandler = new ApiResourceRequestHandler(project, routeTree);
         this.routeTree = routeTree;
+        this.urlPrefixes = urlPrefixes;
     }
 
     /**
@@ -77,7 +81,14 @@ public final class ApiCefRequestHandler extends CefRequestHandlerAdapter {
             String requestInitiator,
             BoolRef disableDefaultHandling) {
 
-        String path = extractPath(request.getURL());
+        String url = request.getURL();
+
+        // Apply URL filtering if configured
+        if (urlPrefixes != null && !matchesUrlFilter(url)) {
+            return null; // Browser handles non-whitelisted URLs
+        }
+
+        String path = extractPath(url);
         HttpMethod method = HttpMethod.valueOf(request.getMethod());
 
         if (routeTree.match(path, method) != null) {
@@ -100,5 +111,19 @@ public final class ApiCefRequestHandler extends CefRequestHandlerAdapter {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    /**
+     * Check if URL matches any configured prefix (whitelist mode).
+     *
+     * @param url full URL to check
+     * @return true if URL matches any prefix, false otherwise
+     */
+    private boolean matchesUrlFilter(String url) {
+        if (url == null || urlPrefixes.isEmpty()) {
+            return false;
+        }
+
+        return urlPrefixes.stream().anyMatch(url::startsWith);
     }
 }

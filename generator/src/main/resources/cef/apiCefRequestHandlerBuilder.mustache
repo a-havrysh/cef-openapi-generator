@@ -12,6 +12,8 @@ import {{apiPackage}}.service.{{classname}}Service;
 {{/apiInfo}}
 
 import java.util.function.Function;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Builder for ApiCefRequestHandler with fluent API.
@@ -30,6 +32,7 @@ public final class ApiCefRequestHandlerBuilder {
 
     private final Project project;
     private final RouteTree routeTree = new RouteTree();
+    private List<String> urlPrefixes = null; // null = accept all URLs
 
     private ApiCefRequestHandlerBuilder(Project project) {
         this.project = project;
@@ -107,12 +110,68 @@ public final class ApiCefRequestHandlerBuilder {
     }
 
     /**
+     * Enable URL filtering using server URLs from OpenAPI specification.
+     * Only requests matching server URL prefixes will be handled by this handler.
+     * Requests to other URLs will return null, allowing the browser to handle them.
+     *
+{{#hasServers}}
+     * <p>Configured servers from OpenAPI spec:</p>
+     * <ul>
+{{#serverUrls}}
+     *   <li>{{{.}}}</li>
+{{/serverUrls}}
+     * </ul>
+{{/hasServers}}
+{{^hasServers}}
+     * <p>WARNING: No server URLs defined in OpenAPI specification.
+     * URL filter will be empty. Consider using withUrlFilter(String...) instead.</p>
+{{/hasServers}}
+     *
+     * @return this builder for chaining
+     */
+    public ApiCefRequestHandlerBuilder withUrlFilter() {
+{{#hasServers}}
+        this.urlPrefixes = new ArrayList<>();
+{{#serverUrls}}
+        this.urlPrefixes.add("{{{.}}}");
+{{/serverUrls}}
+{{/hasServers}}
+{{^hasServers}}
+        this.urlPrefixes = new ArrayList<>();
+{{/hasServers}}
+        return this;
+    }
+
+    /**
+     * Enable URL filtering with custom URL prefixes.
+     * Only requests matching specified URL prefixes will be handled by this handler.
+     * Requests to other URLs will return null, allowing the browser to handle them.
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withUrlFilter("http://localhost:8080", "http://localhost:8081")
+     *     .withApiRoutes()
+     *     .build();
+     * }</pre>
+     *
+     * @param urlPrefixes URL prefixes to allow (e.g., "http://localhost:8080")
+     * @return this builder for chaining
+     */
+    public ApiCefRequestHandlerBuilder withUrlFilter(String... urlPrefixes) {
+        this.urlPrefixes = urlPrefixes == null || urlPrefixes.length == 0
+            ? new ArrayList<>()
+            : new ArrayList<>(List.of(urlPrefixes));
+        return this;
+    }
+
+    /**
      * Build ApiCefRequestHandler with all configured routes.
      * Creates the final request handler ready for use with CEF browser.
      *
      * @return configured ApiCefRequestHandler instance
      */
     public ApiCefRequestHandler build() {
-        return new ApiCefRequestHandler(project, routeTree);
+        return new ApiCefRequestHandler(project, routeTree, urlPrefixes);
     }
 }

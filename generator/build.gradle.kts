@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "io.github.cef"
-version = "1.0.3"
+version = "1.0.4"
 
 dependencies {
     implementation("org.openapitools:openapi-generator:7.18.0")
