@@ -18,8 +18,60 @@ import java.util.Map;
 
 /**
  * HTTP request wrapper that encapsulates all CEF request parameters.
- * Provides convenient access methods with lazy parsing for performance.
- * Auto-generated from OpenAPI specification.
+ *
+ * <p>This class provides a high-level abstraction over CEF's request handling, with lazy parsing
+ * for optimal performance. Request components (query params, body, path variables) are only parsed
+ * when accessed, avoiding unnecessary overhead for requests that don't need all data.</p>
+ *
+ * <h2>CEF Parameter Access</h2>
+ * <ul>
+ *   <li><b>Path Variables:</b> Extracted from URL pattern matching (e.g., /users/{id} -> id=123)</li>
+ *   <li><b>Query Parameters:</b> Parsed from URL query string (e.g., ?filter=active&page=1)</li>
+ *   <li><b>Request Body:</b> Deserialized from POST data using Jackson ObjectMapper</li>
+ *   <li><b>HTTP Method:</b> GET, POST, PUT, DELETE, etc.</li>
+ *   <li><b>CEF Objects:</b> Direct access to CefBrowser, CefFrame, and CefRequest for advanced use</li>
+ * </ul>
+ *
+ * <h2>Lazy Parsing Strategy</h2>
+ * <p>All request components are parsed on first access and cached for subsequent calls. This means:</p>
+ * <ul>
+ *   <li>Query parameters are only parsed when {@code getQueryParams()} is called</li>
+ *   <li>Request body is only extracted when {@code getBodyString()} or {@code getBody(Class)} is called</li>
+ *   <li>Path is only parsed from URL when {@code getPath()} is called</li>
+ * </ul>
+ *
+ * <h2>Usage Examples</h2>
+ * <pre>{@code
+ * // Example 1: Accessing path variables
+ * // Request: GET /users/123
+ * String userId = request.getPathVariable("id");  // Returns "123"
+ *
+ * // Example 2: Accessing query parameters
+ * // Request: GET /users?status=active&role=admin
+ * Map<String, String> params = request.getQueryParams();
+ * String status = params.get("status");  // Returns "active"
+ *
+ * // Example 3: Deserializing request body
+ * // Request: POST /users with JSON body
+ * UserDto user = request.getBody(UserDto.class);
+ *
+ * // Example 4: Checking HTTP method
+ * if (request.getMethod() == HttpMethod.POST) {
+ *     // Handle POST logic
+ * }
+ *
+ * // Example 5: Advanced CEF access
+ * CefBrowser browser = request.getCefBrowser();
+ * browser.executeJavaScript("console.log('Request processed')", "", 0);
+ * }</pre>
+ *
+ * <p><b>Thread Safety:</b> This class is not thread-safe. Each request should be processed
+ * by a single thread.</p>
+ *
+ * <p><b>Auto-generated:</b> This class is generated from OpenAPI specification. Do not modify manually.</p>
+ *
+ * @see ApiResponse
+ * @see HttpMethod
  */
 public final class ApiRequest {
 
