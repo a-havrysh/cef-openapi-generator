@@ -122,6 +122,12 @@ var handler = ApiCefRequestHandler.builder(project)
         return ApiResponse.ok(data, ContentTypeResolver.resolve(request.getPath()));
     })
     .withExact("/health", request -> ApiResponse.ok("OK"))
+    .withFallback(request -> {
+        // Fallback for unmatched routes (e.g., static files)
+        String path = request.getPath().substring(1);
+        byte[] data = readResource(path);
+        return ApiResponse.ok(data, ContentTypeResolver.resolve(path));
+    })
     .build();
 ```
 
