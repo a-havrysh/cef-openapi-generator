@@ -9,14 +9,58 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Extended Trie-based route matcher.
- * Supports: pattern routes (cached), prefix/exact/contains routes (not cached).
+ * Extended Trie-based route matcher with caching support.
+ * Implements a hybrid routing strategy combining Trie traversal for pattern routes
+ * and direct lookup for simple routes (prefix, exact, contains).
  * Auto-generated from OpenAPI specification.
+ *
+ * <p>Routing strategies (in order of precedence):
+ * <ol>
+ *   <li>Pattern routes (with path variables) - cached, uses Trie structure</li>
+ *   <li>Exact simple routes - not cached, direct lookup</li>
+ *   <li>Prefix routes - not cached, sequential matching</li>
+ *   <li>Contains routes - not cached, sequential matching</li>
+ * </ol>
+ *
+ * <p>Cache behavior:
+ * <ul>
+ *   <li>Only pattern routes are cached (LRU cache with 100 entries)</li>
+ *   <li>Cache key format: "METHOD:path"</li>
+ *   <li>Cache stores both handler and extracted path variables</li>
+ * </ul>
+ *
+ * <p>Example usage:
+ * <pre>{@code
+ * RouteTree tree = new RouteTree();
+ * tree.addRoute("/api/users/{id}", HttpMethod.GET, request -> {
+ *     String userId = request.getPathVariables().get("id");
+ *     return ApiResponse.ok(userService.getUser(userId));
+ * });
+ *
+ * MatchResult result = tree.match("/api/users/123", HttpMethod.GET);
+ * if (result != null) {
+ *     ApiResponse<?> response = result.handler().apply(request);
+ *     String userId = result.pathVariables().get("id"); // "123"
+ * }
+ * }</pre>
  */
 public final class RouteTree {
 
+    /**
+     * Exact routes map for pattern routes (containing path variables).
+     * Key: full path pattern, Value: method-to-handler map.
+     */
     private final Map<String, Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>>> exactRoutes = new HashMap<>();
+
+    /**
+     * Root node of the Trie structure for pattern matching.
+     */
     private final RouteNode root = new RouteNode("");
+
+    /**
+     * LRU cache for matched pattern routes.
+     * Automatically evicts eldest entry when size exceeds 100.
+     */
     private final Map<String, CacheEntry> matchCache = new LinkedHashMap<String, CacheEntry>(100, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, CacheEntry> eldest) {
@@ -24,10 +68,39 @@ public final class RouteTree {
         }
     };
 
+    /**
+     * Prefix-based routes for paths that start with a specific prefix.
+     * Not cached to avoid cache pollution.
+     */
     private final Map<String, Function<ApiRequest, ApiResponse<?>>> prefixRoutes = new HashMap<>();
+
+    /**
+     * Exact match routes for simple paths without variables.
+     * Not cached due to O(1) lookup performance.
+     */
     private final Map<String, Function<ApiRequest, ApiResponse<?>>> exactSimpleRoutes = new HashMap<>();
+
+    /**
+     * Substring-based routes for paths containing a specific substring.
+     * Not cached to avoid cache pollution.
+     */
     private final Map<String, Function<ApiRequest, ApiResponse<?>>> containsRoutes = new HashMap<>();
 
+    /**
+     * Add a route pattern with path variables to the tree.
+     * If pattern contains template variables (e.g., {id}), it's stored in the Trie.
+     * Otherwise, stored in exact routes map for O(1) lookup.
+     *
+     * @param pattern URL path pattern, may contain {variable} placeholders
+     * @param method  HTTP method (GET, POST, etc.)
+     * @param handler request handler function
+     *
+     * <p>Example:
+     * <pre>{@code
+     * addRoute("/api/users/{id}/posts/{postId}", HttpMethod.GET, handler);
+     * // Creates Trie: root -> "api" -> "users" -> {id} -> "posts" -> {postId}
+     * }</pre>
+     */
     public void addRoute(String pattern, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
         if (!hasTemplates(pattern)) {
             exactRoutes.computeIfAbsent(pattern, k -> new HashMap<>()).put(method, handler);
@@ -54,18 +127,75 @@ public final class RouteTree {
         current.addHandler(method, handler);
     }
 
+    /**
+     * Add a prefix-based route that matches any path starting with the given prefix.
+     * Not cached to avoid cache pollution from dynamic paths.
+     *
+     * @param prefix  URL path prefix (e.g., "/static/")
+     * @param handler request handler function
+     *
+     * <p>Example:
+     * <pre>{@code
+     * addPrefixRoute("/static/", staticFileHandler);
+     * // Matches: /static/css/style.css, /static/js/app.js, etc.
+     * }</pre>
+     */
     public void addPrefixRoute(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
         prefixRoutes.put(prefix, handler);
     }
 
+    /**
+     * Add an exact match route for simple paths without variables.
+     * Uses O(1) lookup, no caching needed.
+     *
+     * @param path    exact URL path
+     * @param handler request handler function
+     *
+     * <p>Example:
+     * <pre>{@code
+     * addExactRoute("/health", healthCheckHandler);
+     * // Only matches exactly: /health
+     * }</pre>
+     */
     public void addExactRoute(String path, Function<ApiRequest, ApiResponse<?>> handler) {
         exactSimpleRoutes.put(path, handler);
     }
 
+    /**
+     * Add a substring-based route that matches any path containing the substring.
+     * Not cached to avoid cache pollution from dynamic paths.
+     *
+     * @param substring substring to search for in path
+     * @param handler   request handler function
+     *
+     * <p>Example:
+     * <pre>{@code
+     * addContainsRoute(".min.", minifiedResourceHandler);
+     * // Matches: /js/app.min.js, /css/style.min.css, etc.
+     * }</pre>
+     */
     public void addContainsRoute(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
         containsRoutes.put(substring, handler);
     }
 
+    /**
+     * Match a request path and HTTP method to a registered route handler.
+     * Tries strategies in order: cache lookup, pattern routes, exact routes,
+     * prefix routes, contains routes.
+     *
+     * @param path   URL path to match
+     * @param method HTTP method
+     * @return MatchResult containing handler and path variables, or null if no match
+     *
+     * <p>Example:
+     * <pre>{@code
+     * MatchResult result = tree.match("/api/users/123", HttpMethod.GET);
+     * if (result != null) {
+     *     Map<String, String> vars = result.pathVariables(); // {id: "123"}
+     *     ApiResponse<?> response = result.handler().apply(request);
+     * }
+     * }</pre>
+     */
     public MatchResult match(String path, HttpMethod method) {
         String cacheKey = method + ":" + path;
         CacheEntry cached = matchCache.get(cacheKey);
@@ -99,6 +229,14 @@ public final class RouteTree {
         return null;
     }
 
+    /**
+     * Match pattern routes using exact lookup or Trie traversal.
+     * First tries exact path match, then traverses Trie for pattern matching.
+     *
+     * @param path   URL path to match
+     * @param method HTTP method
+     * @return MatchResult with handler and path variables, or null if no match
+     */
     private MatchResult matchPatternRoutes(String path, HttpMethod method) {
         Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> exactHandlers = exactRoutes.get(path);
         if (exactHandlers != null) {
@@ -118,6 +256,30 @@ public final class RouteTree {
         return null;
     }
 
+    /**
+     * Traverse the Trie structure to find a matching route handler.
+     * Implements greedy literal-first matching: literal segments have priority
+     * over template segments at each level.
+     *
+     * @param path          URL path to match
+     * @param method        HTTP method
+     * @param pathVariables map to populate with extracted path variables
+     * @return matched handler function, or null if no match
+     *
+     * <p>Algorithm:
+     * <ol>
+     *   <li>Split path into segments by "/"</li>
+     *   <li>For each segment, try literal child first</li>
+     *   <li>If no literal match, try template child and capture variable</li>
+     *   <li>Return handler at final node if method matches</li>
+     * </ol>
+     *
+     * <p>Example traversal for "/api/users/123" with pattern "/api/users/{id}":
+     * <pre>{@code
+     * root -> "api" (literal) -> "users" (literal) -> {id} (template, capture "123")
+     * pathVariables = {id: "123"}
+     * }</pre>
+     */
     private Function<ApiRequest, ApiResponse<?>> traverseTree(String path, HttpMethod method,
                                                                Map<String, String> pathVariables) {
         String[] segments = path.split("/");
@@ -140,18 +302,46 @@ public final class RouteTree {
         return current.getHandler(method);
     }
 
+    /**
+     * Check if a path pattern contains template variables.
+     *
+     * @param path URL path pattern
+     * @return true if path contains "{" character
+     */
     private boolean hasTemplates(String path) {
         return path.contains("{");
     }
 
+    /**
+     * Check if a path segment is a template variable.
+     *
+     * @param segment path segment
+     * @return true if segment is in format {variableName}
+     */
     private boolean isTemplate(String segment) {
         return segment.startsWith("{") && segment.endsWith("}");
     }
 
+    /**
+     * Extract variable name from a template segment.
+     *
+     * @param segment template segment in format {variableName}
+     * @return variable name without braces
+     *
+     * <p>Example:
+     * <pre>{@code
+     * extractVariableName("{id}") -> "id"
+     * extractVariableName("{userId}") -> "userId"
+     * }</pre>
+     */
     private String extractVariableName(String segment) {
         return segment.substring(1, segment.length() - 1);
     }
 
+    /**
+     * Cache entry storing a matched route handler and its path variables.
+     * Used by the LRU cache to avoid repeated Trie traversal.
+     */
     private static final class CacheEntry {
         final Function<ApiRequest, ApiResponse<?>> handler;
         final Map<String, String> pathVariables;
@@ -162,6 +352,17 @@ public final class RouteTree {
         }
     }
 
+    /**
+     * Result of a successful route match.
+     * Contains the matched handler function and extracted path variables.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * MatchResult result = tree.match("/api/users/123/posts/456", HttpMethod.GET);
+     * Function<ApiRequest, ApiResponse<?>> handler = result.handler();
+     * Map<String, String> vars = result.pathVariables(); // {id: "123", postId: "456"}
+     * }</pre>
+     */
     public static final class MatchResult {
         private final Function<ApiRequest, ApiResponse<?>> handler;
         private final Map<String, String> pathVariables;
@@ -171,10 +372,20 @@ public final class RouteTree {
             this.pathVariables = pathVariables;
         }
 
+        /**
+         * Get the matched request handler function.
+         *
+         * @return handler function that processes the request
+         */
         public Function<ApiRequest, ApiResponse<?>> handler() {
             return handler;
         }
 
+        /**
+         * Get the extracted path variables from the matched route.
+         *
+         * @return map of variable name to value (empty if no variables)
+         */
         public Map<String, String> pathVariables() {
             return pathVariables;
         }

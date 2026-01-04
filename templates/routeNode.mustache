@@ -5,60 +5,167 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Node in the route tree structure.
- * Represents one segment of a URL path.
+ * Node in the Trie-based route tree structure.
+ * Represents one segment of a URL path (either literal or template variable).
  * Auto-generated from OpenAPI specification.
+ *
+ * <p>Node types:
+ * <ul>
+ *   <li>Literal node: represents a fixed path segment (e.g., "api", "users")</li>
+ *   <li>Template node: represents a variable path segment (e.g., {id}, {userId})</li>
+ * </ul>
+ *
+ * <p>Tree structure:
+ * <ul>
+ *   <li>Each node can have multiple literal children (one per unique segment)</li>
+ *   <li>Each node can have at most one template child (wildcard match)</li>
+ *   <li>Literal children have priority over template child during matching</li>
+ *   <li>Each node can have multiple handlers (one per HTTP method)</li>
+ * </ul>
+ *
+ * <p>Example tree for routes "/api/users" and "/api/users/{id}":
+ * <pre>
+ * root
+ *  |
+ *  +- "api" (literal)
+ *      |
+ *      +- "users" (literal)
+ *          |
+ *          +- {id} (template, variable="id")
+ * </pre>
  */
 final class RouteNode {
 
+    /**
+     * The path segment this node represents (e.g., "api" or "{id}").
+     */
     private final String segment;
+
+    /**
+     * Whether this node represents a template variable.
+     */
     private final boolean isTemplate;
+
+    /**
+     * The variable name if this is a template node (e.g., "id" for "{id}").
+     * Null for literal nodes.
+     */
     private final String variableName;
 
+    /**
+     * Map of literal child nodes by segment name.
+     * Key: segment string, Value: child RouteNode.
+     */
     private final Map<String, RouteNode> literalChildren = new HashMap<>();
+
+    /**
+     * Single template child node for wildcard matching.
+     * Null if no template child exists.
+     */
     private RouteNode templateChild;
+
+    /**
+     * Map of HTTP method to handler function.
+     * Only populated for terminal nodes (end of a route pattern).
+     */
     private final Map<HttpMethod, Object> handlers = new HashMap<>();
 
+    /**
+     * Create a literal node representing a fixed path segment.
+     *
+     * @param segment the literal segment string (e.g., "api", "users")
+     */
     RouteNode(String segment) {
         this.segment = segment;
         this.isTemplate = false;
         this.variableName = null;
     }
 
+    /**
+     * Create a template node representing a variable path segment.
+     *
+     * @param segment      the template segment with braces (e.g., "{id}")
+     * @param variableName the extracted variable name without braces (e.g., "id")
+     */
     RouteNode(String segment, String variableName) {
         this.segment = segment;
         this.isTemplate = true;
         this.variableName = variableName;
     }
 
+    /**
+     * Get the path segment this node represents.
+     *
+     * @return segment string (e.g., "api" or "{id}")
+     */
     String getSegment() {
         return segment;
     }
 
+    /**
+     * Check if this node represents a template variable.
+     *
+     * @return true if this is a template node, false if literal
+     */
     boolean isTemplate() {
         return isTemplate;
     }
 
+    /**
+     * Get the variable name for template nodes.
+     *
+     * @return variable name without braces (e.g., "id"), or null for literal nodes
+     */
     String getVariableName() {
         return variableName;
     }
 
+    /**
+     * Get the map of literal child nodes.
+     * Used during route registration to add children and during matching to find exact segment matches.
+     *
+     * @return mutable map of segment name to child node
+     */
     Map<String, RouteNode> getLiteralChildren() {
         return literalChildren;
     }
 
+    /**
+     * Get the template child node for wildcard matching.
+     *
+     * @return template child node, or null if none exists
+     */
     RouteNode getTemplateChild() {
         return templateChild;
     }
 
+    /**
+     * Set the template child node.
+     * Each node can have at most one template child.
+     *
+     * @param templateChild the template node to set
+     */
     void setTemplateChild(RouteNode templateChild) {
         this.templateChild = templateChild;
     }
 
+    /**
+     * Add a handler for a specific HTTP method to this node.
+     * This marks the node as a terminal node (end of a route pattern).
+     *
+     * @param method  HTTP method (GET, POST, etc.)
+     * @param handler request handler function
+     */
     void addHandler(HttpMethod method, Object handler) {
         handlers.put(method, handler);
     }
 
+    /**
+     * Get the handler for a specific HTTP method.
+     *
+     * @param method HTTP method to look up
+     * @return handler function, or null if no handler exists for this method
+     */
     Object getHandler(HttpMethod method) {
         return handlers.get(method);
     }
