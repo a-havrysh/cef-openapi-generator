@@ -89,6 +89,12 @@ val generateApi by tasks.registering(org.openapitools.generator.gradle.plugin.ta
 
     modelPackage.set("com.example.api.dto")
     apiPackage.set("com.example.api")
+
+    // Disable unnecessary generation
+    generateApiTests.set(false)
+    generateModelTests.set(false)
+    generateApiDocumentation.set(false)
+    generateModelDocumentation.set(false)
 }
 
 tasks.compileJava {
