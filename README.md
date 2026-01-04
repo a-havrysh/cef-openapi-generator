@@ -45,14 +45,14 @@ val generateApi by tasks.registering(org.openapitools.generator.gradle.plugin.ta
 
 ```java
 // Simple usage
-var handler = CefRequestHandler.builder(project)
+var handler = ApiCefRequestHandler.builder(project)
     .withApiRoutes()
     .build();
 
 browser.addRequestHandler(handler, browser.getCefBrowser());
 
 // With custom routes
-var handler = CefRequestHandler.builder(project)
+var handler = ApiCefRequestHandler.builder(project)
     .withApiRoutes()
     .withPrefix("/static", request -> {
         byte[] data = readStaticFile(request.getPath());
@@ -88,8 +88,8 @@ public class ExampleServiceImpl implements ExampleApiService {
 ```
 api/
 ├── cef/
-│   ├── CefRequestHandler.java
-│   ├── CefRequestHandlerBuilder.java
+│   ├── ApiCefRequestHandler.java
+│   ├── ApiCefRequestHandlerBuilder.java
 │   ├── ApiResourceRequestHandler.java
 │   └── ApiResponseHandler.java
 ├── routing/
@@ -116,7 +116,7 @@ api/
 ## Architecture
 
 ```
-Browser → CefRequestHandler (RouteTree check)
+Browser → ApiCefRequestHandler (RouteTree check)
   → ApiResourceRequestHandler (RouteTree match)
     → Service.handleXxx() → ApiResponse<T>
       → ApiResponseHandler → CEF
