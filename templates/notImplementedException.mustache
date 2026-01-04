@@ -1,11 +1,36 @@
 package {{apiPackage}}.exception;
 
 /**
- * Exception thrown when service method is not implemented.
- * Auto-generated from OpenAPI specification.
+ * Exception thrown when a service method has been declared but not yet implemented.
+ *
+ * <p>This exception is typically thrown by generated service stub methods that require
+ * manual implementation. It serves as a clear indicator that:
+ * <ul>
+ *   <li>The API endpoint exists in the specification</li>
+ *   <li>The method signature has been generated</li>
+ *   <li>The business logic has not been implemented yet</li>
+ * </ul>
+ *
+ * <p>When this exception is thrown, it usually means that developers need to provide
+ * the actual implementation for the method. This is common in code generation scenarios
+ * where the OpenAPI specification defines the API contract, but the implementation
+ * details are left to the developer.
+ *
+ * <p>Note: This exception extends {@link RuntimeException} directly rather than
+ * {@link ApiException}, as it represents a programming error rather than a runtime
+ * HTTP error condition.
+ *
+ * <p>Auto-generated from OpenAPI specification.
  */
 public final class NotImplementedException extends RuntimeException {
 
+    /**
+     * Constructs a new not implemented exception with the specified message.
+     *
+     * <p>The message should clearly indicate which method or feature is not yet implemented.
+     *
+     * @param message the detail message describing what is not implemented
+     */
     public NotImplementedException(String message) {
         super(message);
     }

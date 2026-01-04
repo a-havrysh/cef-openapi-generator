@@ -1,15 +1,42 @@
 package {{apiPackage}}.exception;
 
 /**
- * 404 Not Found exception.
- * Auto-generated from OpenAPI specification.
+ * Exception indicating that the requested resource could not be found (HTTP 404 Not Found).
+ *
+ * <p>This exception should be thrown when:
+ * <ul>
+ *   <li>A requested resource does not exist</li>
+ *   <li>A resource has been deleted</li>
+ *   <li>The requested endpoint is not available</li>
+ *   <li>An entity with the specified identifier cannot be located</li>
+ * </ul>
+ *
+ * <p>This status code indicates that the server has not found anything matching the request URI.
+ * No indication is given as to whether the condition is temporary or permanent.
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see ApiException
  */
 public final class NotFoundException extends ApiException {
 
+    /**
+     * Constructs a new not found exception with the specified message.
+     *
+     * @param message the detail message explaining what resource was not found
+     */
     public NotFoundException(String message) {
         super(404, message);
     }
 
+    /**
+     * Constructs a new not found exception with the specified message and cause.
+     *
+     * <p>This constructor is useful when wrapping data access or lookup exceptions.
+     *
+     * @param message the detail message explaining what resource was not found
+     * @param cause the underlying exception that triggered this not found error
+     */
     public NotFoundException(String message, Throwable cause) {
         super(404, message, cause);
     }

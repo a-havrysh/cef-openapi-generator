@@ -1,24 +1,59 @@
 package {{apiPackage}}.exception;
 
 /**
- * Base exception for API layer.
- * Extend this class for specific HTTP error codes.
- * Auto-generated from OpenAPI specification.
+ * Base exception class for API layer operations.
+ *
+ * <p>This class serves as the foundation for all HTTP-related exceptions in the API layer.
+ * It associates an HTTP status code with the exception, enabling proper error response
+ * generation in RESTful services.
+ *
+ * <p>Subclasses should extend this class to represent specific HTTP error scenarios
+ * (e.g., 400 Bad Request, 404 Not Found, 500 Internal Server Error).
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see BadRequestException
+ * @see NotFoundException
+ * @see InternalServerErrorException
  */
 public class ApiException extends RuntimeException {
 
     private final int statusCode;
 
+    /**
+     * Constructs a new API exception with the specified HTTP status code and message.
+     *
+     * @param statusCode the HTTP status code to associate with this exception
+     * @param message the detail message explaining the exception cause
+     */
     public ApiException(int statusCode, String message) {
         super(message);
         this.statusCode = statusCode;
     }
 
+    /**
+     * Constructs a new API exception with the specified HTTP status code, message, and cause.
+     *
+     * <p>This constructor is useful for wrapping lower-level exceptions while preserving
+     * the exception chain for debugging purposes.
+     *
+     * @param statusCode the HTTP status code to associate with this exception
+     * @param message the detail message explaining the exception cause
+     * @param cause the underlying exception that caused this API exception
+     */
     public ApiException(int statusCode, String message, Throwable cause) {
         super(message, cause);
         this.statusCode = statusCode;
     }
 
+    /**
+     * Returns the HTTP status code associated with this exception.
+     *
+     * <p>This status code should be used when generating HTTP error responses
+     * to clients.
+     *
+     * @return the HTTP status code (e.g., 400, 404, 500)
+     */
     public int getStatusCode() {
         return statusCode;
     }

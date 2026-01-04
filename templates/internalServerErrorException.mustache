@@ -1,15 +1,47 @@
 package {{apiPackage}}.exception;
 
 /**
- * 500 Internal Server Error exception.
- * Auto-generated from OpenAPI specification.
+ * Exception indicating an unexpected server-side error (HTTP 500 Internal Server Error).
+ *
+ * <p>This exception should be thrown when the server encounters an unexpected condition
+ * that prevents it from fulfilling the request. Common scenarios include:
+ * <ul>
+ *   <li>Unhandled runtime exceptions</li>
+ *   <li>Database connection failures</li>
+ *   <li>External service unavailability</li>
+ *   <li>Configuration errors</li>
+ *   <li>Resource exhaustion</li>
+ *   <li>Unexpected state or data corruption</li>
+ * </ul>
+ *
+ * <p>This is a generic error response indicating that the server is unable to fulfill
+ * the request due to an internal problem. Unlike client errors (4xx), this indicates
+ * the fault lies with the server, not the client request.
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see ApiException
  */
 public final class InternalServerErrorException extends ApiException {
 
+    /**
+     * Constructs a new internal server error exception with the specified message.
+     *
+     * @param message the detail message explaining the internal server error
+     */
     public InternalServerErrorException(String message) {
         super(500, message);
     }
 
+    /**
+     * Constructs a new internal server error exception with the specified message and cause.
+     *
+     * <p>This constructor should be used when wrapping unexpected exceptions that occur
+     * during request processing.
+     *
+     * @param message the detail message explaining the internal server error
+     * @param cause the underlying exception that caused the server error
+     */
     public InternalServerErrorException(String message, Throwable cause) {
         super(500, message, cause);
     }

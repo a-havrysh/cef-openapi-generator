@@ -1,12 +1,88 @@
 package {{apiPackage}}.protocol;
 
 /**
- * HTTP request methods enumeration.
- * Auto-generated from OpenAPI specification.
+ * Enumeration of standard HTTP request methods (verbs).
+ *
+ * <p>This enum represents the most commonly used HTTP methods as defined in
+ * <a href="https://tools.ietf.org/html/rfc7231#section-4">RFC 7231</a> and
+ * <a href="https://tools.ietf.org/html/rfc5789">RFC 5789</a> (PATCH).
+ *
+ * <p>HTTP methods indicate the desired action to be performed on a resource:
+ * <ul>
+ *   <li><b>GET</b> - Retrieve a resource (safe, idempotent, cacheable)</li>
+ *   <li><b>POST</b> - Submit data to create or process a resource (not idempotent)</li>
+ *   <li><b>PUT</b> - Replace or create a resource (idempotent)</li>
+ *   <li><b>DELETE</b> - Remove a resource (idempotent)</li>
+ *   <li><b>PATCH</b> - Partially modify a resource (not necessarily idempotent)</li>
+ *   <li><b>HEAD</b> - Retrieve headers only, without body (safe, idempotent)</li>
+ *   <li><b>OPTIONS</b> - Describe communication options for a resource (safe, idempotent)</li>
+ * </ul>
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods">HTTP Methods</a>
  */
 public enum HttpMethod {
-    GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS;
+    /**
+     * GET method - requests a representation of the specified resource.
+     * GET requests should only retrieve data and have no other effect.
+     */
+    GET,
 
+    /**
+     * POST method - submits data to be processed to a specified resource.
+     * Often causes a change in state or side effects on the server.
+     */
+    POST,
+
+    /**
+     * PUT method - replaces all current representations of the target resource
+     * with the request payload.
+     */
+    PUT,
+
+    /**
+     * DELETE method - removes the specified resource.
+     */
+    DELETE,
+
+    /**
+     * PATCH method - applies partial modifications to a resource.
+     */
+    PATCH,
+
+    /**
+     * HEAD method - identical to GET but without the response body.
+     * Used to retrieve metadata about a resource.
+     */
+    HEAD,
+
+    /**
+     * OPTIONS method - describes the communication options for the target resource.
+     * Often used in CORS preflight requests.
+     */
+    OPTIONS;
+
+    /**
+     * Converts a string representation of an HTTP method to its corresponding enum constant.
+     *
+     * <p>The conversion is case-insensitive. If the input is {@code null}, the method
+     * returns {@link #GET} as a safe default.
+     *
+     * @param method the string representation of the HTTP method (e.g., "get", "POST", "Delete").
+     *               Can be null, in which case GET is returned.
+     * @return the corresponding {@code HttpMethod} enum constant
+     * @throws IllegalArgumentException if the string does not match any known HTTP method
+     *                                  (after converting to uppercase)
+     *
+     * @example
+     * <pre>
+     * HttpMethod.fromString("get")     // returns GET
+     * HttpMethod.fromString("POST")    // returns POST
+     * HttpMethod.fromString(null)      // returns GET
+     * HttpMethod.fromString("invalid") // throws IllegalArgumentException
+     * </pre>
+     */
     public static HttpMethod fromString(String method) {
         return method == null ? GET : valueOf(method.toUpperCase());
     }

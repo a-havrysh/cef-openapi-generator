@@ -1,20 +1,82 @@
 package {{apiPackage}}.util;
 
 /**
- * Utility for resolving Content-Type headers based on file extensions.
- * Auto-generated from OpenAPI specification.
+ * Utility class for resolving MIME types (Content-Type) based on file extensions.
+ *
+ * <p>This class provides a lightweight, file-extension-based approach to determining
+ * the appropriate Content-Type header for HTTP responses serving static resources.
+ * It supports common web assets including:
+ * <ul>
+ *   <li>Web documents (HTML, CSS, JavaScript, JSON)</li>
+ *   <li>Images (PNG, JPEG, GIF, SVG, WebP)</li>
+ *   <li>Fonts (WOFF, WOFF2, TTF, EOT)</li>
+ *   <li>Documents (PDF, XML, TXT)</li>
+ *   <li>Archives (ZIP)</li>
+ * </ul>
+ *
+ * <p>The resolver uses simple string suffix matching for performance. For unknown
+ * file types, it returns {@code application/octet-stream} as a safe default.
+ *
+ * <p><b>Thread Safety:</b> This class is stateless and thread-safe.
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Type">Content-Type Header</a>
  */
 public final class ContentTypeResolver {
 
+    /**
+     * Private constructor to prevent instantiation of this utility class.
+     *
+     * @throws UnsupportedOperationException always, as this class should not be instantiated
+     */
     private ContentTypeResolver() {
         throw new UnsupportedOperationException("Utility class");
     }
 
     /**
-     * Determines the Content-Type based on file extension.
+     * Resolves the appropriate MIME type based on the file extension in the given path.
      *
-     * @param path file path or URL
-     * @return MIME type string
+     * <p>The method performs a case-sensitive suffix match on the provided path.
+     * If no known extension is found, it returns {@code application/octet-stream}
+     * as a generic binary content type.
+     *
+     * <p>Supported extensions and their corresponding MIME types:
+     * <table border="1">
+     *   <caption>Supported MIME Types</caption>
+     *   <tr><th>Extension</th><th>MIME Type</th><th>Category</th></tr>
+     *   <tr><td>.html</td><td>text/html</td><td>Web Document</td></tr>
+     *   <tr><td>.js</td><td>application/javascript</td><td>Script</td></tr>
+     *   <tr><td>.css</td><td>text/css</td><td>Stylesheet</td></tr>
+     *   <tr><td>.json</td><td>application/json</td><td>Data</td></tr>
+     *   <tr><td>.svg</td><td>image/svg+xml</td><td>Vector Image</td></tr>
+     *   <tr><td>.png</td><td>image/png</td><td>Raster Image</td></tr>
+     *   <tr><td>.jpg, .jpeg</td><td>image/jpeg</td><td>Raster Image</td></tr>
+     *   <tr><td>.gif</td><td>image/gif</td><td>Raster Image</td></tr>
+     *   <tr><td>.webp</td><td>image/webp</td><td>Raster Image</td></tr>
+     *   <tr><td>.woff2</td><td>font/woff2</td><td>Font</td></tr>
+     *   <tr><td>.woff</td><td>font/woff</td><td>Font</td></tr>
+     *   <tr><td>.ttf</td><td>font/ttf</td><td>Font</td></tr>
+     *   <tr><td>.eot</td><td>application/vnd.ms-fontobject</td><td>Font</td></tr>
+     *   <tr><td>.xml</td><td>application/xml</td><td>Document</td></tr>
+     *   <tr><td>.pdf</td><td>application/pdf</td><td>Document</td></tr>
+     *   <tr><td>.zip</td><td>application/zip</td><td>Archive</td></tr>
+     *   <tr><td>.txt</td><td>text/plain</td><td>Text</td></tr>
+     * </table>
+     *
+     * @param path the file path or URL from which to extract the extension.
+     *             Must not be null. Can be a full path, relative path, or just a filename.
+     * @return the MIME type corresponding to the file extension, or
+     *         {@code application/octet-stream} if the extension is unknown
+     * @throws NullPointerException if path is null
+     *
+     * @example
+     * <pre>
+     * ContentTypeResolver.resolve("index.html")        // returns "text/html"
+     * ContentTypeResolver.resolve("/path/to/style.css") // returns "text/css"
+     * ContentTypeResolver.resolve("data.json")          // returns "application/json"
+     * ContentTypeResolver.resolve("unknown.xyz")        // returns "application/octet-stream"
+     * </pre>
      */
     public static String resolve(String path) {
         if (path.endsWith(".html")) return "text/html";

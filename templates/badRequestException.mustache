@@ -1,15 +1,43 @@
 package {{apiPackage}}.exception;
 
 /**
- * 400 Bad Request exception.
- * Auto-generated from OpenAPI specification.
+ * Exception indicating a malformed or invalid client request (HTTP 400 Bad Request).
+ *
+ * <p>This exception should be thrown when the server cannot process the request due to
+ * client-side errors, such as:
+ * <ul>
+ *   <li>Invalid request syntax</li>
+ *   <li>Malformed request parameters</li>
+ *   <li>Invalid request body</li>
+ *   <li>Failed validation of input data</li>
+ *   <li>Missing required parameters</li>
+ * </ul>
+ *
+ * <p>The client should modify the request before retrying.
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see ApiException
  */
 public final class BadRequestException extends ApiException {
 
+    /**
+     * Constructs a new bad request exception with the specified message.
+     *
+     * @param message the detail message explaining why the request was invalid
+     */
     public BadRequestException(String message) {
         super(400, message);
     }
 
+    /**
+     * Constructs a new bad request exception with the specified message and cause.
+     *
+     * <p>This constructor is useful when wrapping validation or parsing exceptions.
+     *
+     * @param message the detail message explaining why the request was invalid
+     * @param cause the underlying exception that triggered this bad request
+     */
     public BadRequestException(String message, Throwable cause) {
         super(400, message, cause);
     }
