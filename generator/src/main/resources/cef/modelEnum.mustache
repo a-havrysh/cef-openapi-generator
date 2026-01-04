@@ -1,8 +1,14 @@
 package {{package}};
 
+import java.util.*;
+{{#imports}}
+import {{import}};
+{{/imports}}
+
 /**
  * {{classname}}{{#description}} - {{{.}}}{{/description}}
  * Auto-generated from OpenAPI specification.
+ * TEMPLATE: cef/modelEnum.mustache
  */
 {{#models}}
 {{#model}}

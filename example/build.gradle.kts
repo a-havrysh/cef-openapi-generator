@@ -27,7 +27,6 @@ val generateApi by tasks.registering(org.openapitools.generator.gradle.plugin.ta
     generatorName.set("cef")
     inputSpec.set("$projectDir/openapi.yaml")
     outputDir.set("$buildDir/generated")
-    templateDir.set("${projectDir.parent}/templates")
 
     modelPackage.set("com.example.api.dto")
     apiPackage.set("com.example.api")

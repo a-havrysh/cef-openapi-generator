@@ -4,10 +4,12 @@ plugins {
 }
 
 group = "io.github.cef"
-version = "1.0.4"
+version = "1.0.5"
 
 dependencies {
     implementation("org.openapitools:openapi-generator:7.18.0")
+    compileOnly("org.projectlombok:lombok:1.18.42")
+    annotationProcessor("org.projectlombok:lombok:1.18.42")
 }
 
 java {
@@ -21,11 +23,6 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
-
-            artifact(tasks.register("templateJar", Jar::class) {
-                archiveClassifier.set("templates")
-                from(projectDir.parent + "/templates")
-            })
 
             pom {
                 name.set("CEF OpenAPI Generator")
