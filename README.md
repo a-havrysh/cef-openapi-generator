@@ -66,7 +66,7 @@ var handler = ApiCefRequestHandler.builder(project)
 
 ```java
 @Service(Service.Level.PROJECT)
-public class ExampleServiceImpl implements ExampleApiService {
+public final class ExampleServiceImpl implements ExampleApiService {
 
     @Override
     public Message getHello() {
