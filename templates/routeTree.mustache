@@ -1,0 +1,183 @@
+package {{apiPackage}}.routing;
+
+import {{apiPackage}}.protocol.HttpMethod;
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.protocol.ApiResponse;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+/**
+ * Extended Trie-based route matcher.
+ * Supports: pattern routes (cached), prefix/exact/contains routes (not cached).
+ * Auto-generated from OpenAPI specification.
+ */
+public final class RouteTree {
+
+    private final Map<String, Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>>> exactRoutes = new HashMap<>();
+    private final RouteNode root = new RouteNode("");
+    private final Map<String, CacheEntry> matchCache = new LinkedHashMap<String, CacheEntry>(100, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, CacheEntry> eldest) {
+            return size() > 100;
+        }
+    };
+
+    private final Map<String, Function<ApiRequest, ApiResponse<?>>> prefixRoutes = new HashMap<>();
+    private final Map<String, Function<ApiRequest, ApiResponse<?>>> exactSimpleRoutes = new HashMap<>();
+    private final Map<String, Function<ApiRequest, ApiResponse<?>>> containsRoutes = new HashMap<>();
+
+    public void addRoute(String pattern, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        if (!hasTemplates(pattern)) {
+            exactRoutes.computeIfAbsent(pattern, k -> new HashMap<>()).put(method, handler);
+            return;
+        }
+
+        String[] segments = pattern.split("/");
+        RouteNode current = root;
+
+        for (String segment : segments) {
+            if (segment.isEmpty()) {
+                continue;
+            } else if (isTemplate(segment)) {
+                String varName = extractVariableName(segment);
+                if (current.getTemplateChild() == null) {
+                    current.setTemplateChild(new RouteNode(segment, varName));
+                }
+                current = current.getTemplateChild();
+            } else {
+                current = current.getLiteralChildren().computeIfAbsent(segment, s -> new RouteNode(s));
+            }
+        }
+
+        current.addHandler(method, handler);
+    }
+
+    public void addPrefixRoute(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
+        prefixRoutes.put(prefix, handler);
+    }
+
+    public void addExactRoute(String path, Function<ApiRequest, ApiResponse<?>> handler) {
+        exactSimpleRoutes.put(path, handler);
+    }
+
+    public void addContainsRoute(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
+        containsRoutes.put(substring, handler);
+    }
+
+    public MatchResult match(String path, HttpMethod method) {
+        String cacheKey = method + ":" + path;
+        CacheEntry cached = matchCache.get(cacheKey);
+        if (cached != null) {
+            return new MatchResult(cached.handler, cached.pathVariables);
+        }
+
+        MatchResult result = matchPatternRoutes(path, method);
+        if (result != null) {
+            matchCache.put(cacheKey, new CacheEntry(result.handler, result.pathVariables));
+            return result;
+        }
+
+        Function<ApiRequest, ApiResponse<?>> exactHandler = exactSimpleRoutes.get(path);
+        if (exactHandler != null) {
+            return new MatchResult(exactHandler, Map.of());
+        }
+
+        for (Map.Entry<String, Function<ApiRequest, ApiResponse<?>>> entry : prefixRoutes.entrySet()) {
+            if (path.startsWith(entry.getKey())) {
+                return new MatchResult(entry.getValue(), Map.of());
+            }
+        }
+
+        for (Map.Entry<String, Function<ApiRequest, ApiResponse<?>>> entry : containsRoutes.entrySet()) {
+            if (path.contains(entry.getKey())) {
+                return new MatchResult(entry.getValue(), Map.of());
+            }
+        }
+
+        return null;
+    }
+
+    private MatchResult matchPatternRoutes(String path, HttpMethod method) {
+        Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> exactHandlers = exactRoutes.get(path);
+        if (exactHandlers != null) {
+            Function<ApiRequest, ApiResponse<?>> handler = exactHandlers.get(method);
+            if (handler != null) {
+                return new MatchResult(handler, Map.of());
+            }
+        }
+
+        Map<String, String> pathVariables = new HashMap<>();
+        Function<ApiRequest, ApiResponse<?>> handler = traverseTree(path, method, pathVariables);
+
+        if (handler != null) {
+            return new MatchResult(handler, pathVariables);
+        }
+
+        return null;
+    }
+
+    private Function<ApiRequest, ApiResponse<?>> traverseTree(String path, HttpMethod method,
+                                                               Map<String, String> pathVariables) {
+        String[] segments = path.split("/");
+        RouteNode current = root;
+
+        for (String segment : segments) {
+            if (segment.isEmpty()) {
+                continue;
+            } else if (current.getLiteralChildren().containsKey(segment)) {
+                current = current.getLiteralChildren().get(segment);
+            } else if (current.getTemplateChild() != null) {
+                RouteNode templateChild = current.getTemplateChild();
+                pathVariables.put(templateChild.getVariableName(), segment);
+                current = templateChild;
+            } else {
+                return null;
+            }
+        }
+
+        return current.getHandler(method);
+    }
+
+    private boolean hasTemplates(String path) {
+        return path.contains("{");
+    }
+
+    private boolean isTemplate(String segment) {
+        return segment.startsWith("{") && segment.endsWith("}");
+    }
+
+    private String extractVariableName(String segment) {
+        return segment.substring(1, segment.length() - 1);
+    }
+
+    private static final class CacheEntry {
+        final Function<ApiRequest, ApiResponse<?>> handler;
+        final Map<String, String> pathVariables;
+
+        CacheEntry(Function<ApiRequest, ApiResponse<?>> handler, Map<String, String> pathVariables) {
+            this.handler = handler;
+            this.pathVariables = pathVariables;
+        }
+    }
+
+    public static final class MatchResult {
+        private final Function<ApiRequest, ApiResponse<?>> handler;
+        private final Map<String, String> pathVariables;
+
+        MatchResult(Function<ApiRequest, ApiResponse<?>> handler, Map<String, String> pathVariables) {
+            this.handler = handler;
+            this.pathVariables = pathVariables;
+        }
+
+        public Function<ApiRequest, ApiResponse<?>> handler() {
+            return handler;
+        }
+
+        public Map<String, String> pathVariables() {
+            return pathVariables;
+        }
+    }
+}
+

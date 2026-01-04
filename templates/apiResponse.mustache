@@ -1,0 +1,69 @@
+package {{apiPackage}}.protocol;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Generic API response wrapper (like Spring ResponseEntity).
+ * Encapsulates response body, content type, status code, and headers.
+ * Auto-generated from OpenAPI specification.
+ *
+ * @param <T> type of response body
+ */
+public final class ApiResponse<T> {
+
+    private final T body;
+    private final String contentType;
+    private final int statusCode;
+    private final Map<String, String> headers;
+
+    private ApiResponse(T body, String contentType, int statusCode, Map<String, String> headers) {
+        this.body = body;
+        this.contentType = contentType;
+        this.statusCode = statusCode;
+        this.headers = headers;
+    }
+
+    public static <T> ApiResponse<T> ok(T body) {
+        return new ApiResponse<>(body, "application/json", 200, Collections.emptyMap());
+    }
+
+    public static <T> ApiResponse<T> ok(T body, String contentType) {
+        return new ApiResponse<>(body, contentType, 200, Collections.emptyMap());
+    }
+
+    public static ApiResponse<Void> noContent() {
+        return new ApiResponse<>(null, "text/plain", 204, Collections.emptyMap());
+    }
+
+    public static <T> ApiResponse<T> status(int statusCode, T body) {
+        return new ApiResponse<>(body, "application/json", statusCode, Collections.emptyMap());
+    }
+
+    public ApiResponse<T> contentType(String contentType) {
+        return new ApiResponse<>(this.body, contentType, this.statusCode, this.headers);
+    }
+
+    public ApiResponse<T> header(String name, String value) {
+        Map<String, String> newHeaders = new HashMap<>(this.headers);
+        newHeaders.put(name, value);
+        return new ApiResponse<>(this.body, this.contentType, this.statusCode, newHeaders);
+    }
+
+    public T getBody() {
+        return body;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
+
+    public int getStatusCode() {
+        return statusCode;
+    }
+
+    public Map<String, String> getHeaders() {
+        return headers;
+    }
+}

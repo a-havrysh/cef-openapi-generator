@@ -1,0 +1,166 @@
+package {{apiPackage}}.protocol;
+
+import {{apiPackage}}.exception.ApiException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.cef.browser.CefBrowser;
+import org.cef.browser.CefFrame;
+import org.cef.network.CefRequest;
+import org.cef.network.CefPostData;
+import org.cef.network.CefPostDataElement;
+
+import java.io.ByteArrayOutputStream;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * HTTP request wrapper that encapsulates all CEF request parameters.
+ * Provides convenient access methods with lazy parsing for performance.
+ * Auto-generated from OpenAPI specification.
+ */
+public final class ApiRequest {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private final CefRequest cefRequest;
+    private final CefBrowser cefBrowser;
+    private final CefFrame cefFrame;
+
+    // Lazy-initialized fields
+    private HttpMethod method;
+    private String path;
+    private String bodyString;
+    private Map<String, String> queryParams;
+    private Map<String, String> pathVariables;
+
+    public ApiRequest(CefRequest cefRequest, CefBrowser cefBrowser, CefFrame cefFrame) {
+        this.cefRequest = cefRequest;
+        this.cefBrowser = cefBrowser;
+        this.cefFrame = cefFrame;
+        this.pathVariables = Collections.emptyMap();
+    }
+
+    public HttpMethod getMethod() {
+        if (method == null) {
+            method = HttpMethod.valueOf(cefRequest.getMethod());
+        }
+        return method;
+    }
+
+    public String getPath() {
+        if (path == null) {
+            try {
+                URI uri = new URI(cefRequest.getURL());
+                path = uri.getPath();
+            } catch (Exception e) {
+                path = "/";
+            }
+        }
+        return path;
+    }
+
+    public String getBodyString() {
+        if (bodyString == null) {
+            bodyString = extractBodyString();
+        }
+        return bodyString;
+    }
+
+    public Map<String, String> getQueryParams() {
+        if (queryParams == null) {
+            queryParams = parseQueryParams();
+        }
+        return queryParams;
+    }
+
+    public Map<String, String> getPathVariables() {
+        return pathVariables;
+    }
+
+    public <T> T getBody(Class<T> clazz) {
+        try {
+            String body = getBodyString();
+            if (body == null || body.isEmpty()) {
+                return null;
+            }
+            return OBJECT_MAPPER.readValue(body, clazz);
+        } catch (Exception e) {
+            throw ApiException.badRequest("Invalid request body: " + e.getMessage());
+        }
+    }
+
+    public String getPathVariable(String name) {
+        return pathVariables.get(name);
+    }
+
+    public CefBrowser getCefBrowser() {
+        return cefBrowser;
+    }
+
+    public CefFrame getCefFrame() {
+        return cefFrame;
+    }
+
+    public CefRequest getCefRequest() {
+        return cefRequest;
+    }
+
+    /**
+     * Sets path variables extracted from URL pattern matching.
+     * Package-private, called by handler during request processing.
+     */
+    void setPathVariables(Map<String, String> pathVariables) {
+        this.pathVariables = pathVariables != null ? pathVariables : Collections.emptyMap();
+    }
+
+    private String extractBodyString() {
+        CefPostData postData = cefRequest.getPostData();
+        if (postData == null) {
+            return null;
+        }
+
+        java.util.Vector<CefPostDataElement> elements = postData.getElements();
+        if (elements == null || elements.isEmpty()) {
+            return null;
+        }
+
+        try {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            for (CefPostDataElement element : elements) {
+                byte[] bytes = element.getBytes();
+                if (bytes != null) {
+                    output.write(bytes);
+                }
+            }
+            return output.toString(StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Map<String, String> parseQueryParams() {
+        try {
+            URI uri = new URI(cefRequest.getURL());
+            String query = uri.getQuery();
+            if (query == null || query.isEmpty()) {
+                return Collections.emptyMap();
+            }
+
+            Map<String, String> params = new HashMap<>();
+            for (String param : query.split("&")) {
+                String[] keyValue = param.split("=", 2);
+                if (keyValue.length == 2) {
+                    String key = URLDecoder.decode(keyValue[0], StandardCharsets.UTF_8);
+                    String value = URLDecoder.decode(keyValue[1], StandardCharsets.UTF_8);
+                    params.put(key, value);
+                }
+            }
+            return params;
+        } catch (Exception e) {
+            return Collections.emptyMap();
+        }
+    }
+}

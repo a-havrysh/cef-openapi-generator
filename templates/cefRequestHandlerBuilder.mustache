@@ -1,0 +1,83 @@
+package {{apiPackage}}.cef;
+
+import com.intellij.openapi.project.Project;
+import {{apiPackage}}.routing.RouteTree;
+import {{apiPackage}}.protocol.HttpMethod;
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.protocol.ApiResponse;
+{{#apiInfo}}
+{{#apis}}
+import {{apiPackage}}.service.{{classname}}Service;
+{{/apis}}
+{{/apiInfo}}
+
+import java.util.function.Function;
+
+/**
+ * Builder for CefRequestHandler with fluent API.
+ * Allows adding custom routes alongside generated API routes.
+ * Auto-generated from OpenAPI specification.
+ */
+public final class CefRequestHandlerBuilder {
+
+    private final Project project;
+    private final RouteTree routeTree = new RouteTree();
+
+    private CefRequestHandlerBuilder(Project project) {
+        this.project = project;
+    }
+
+    public static CefRequestHandlerBuilder builder(Project project) {
+        return new CefRequestHandlerBuilder(project);
+    }
+
+    /**
+     * Add all generated API routes.
+     */
+    public CefRequestHandlerBuilder withApiRoutes() {
+{{#apiInfo}}
+{{#apis}}
+{{#operations}}
+{{#operation}}
+        routeTree.addRoute("{{path}}", HttpMethod.{{httpMethod}}, request -> {
+            {{classname}}Service service = project.getService({{classname}}Service.class);
+            return service.handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}(request);
+        });
+{{/operation}}
+{{/operations}}
+{{/apis}}
+{{/apiInfo}}
+        return this;
+    }
+
+    /**
+     * Add prefix route (matches if path starts with prefix).
+     */
+    public CefRequestHandlerBuilder withPrefix(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
+        routeTree.addPrefixRoute(prefix, handler);
+        return this;
+    }
+
+    /**
+     * Add exact route (matches if path equals exactly).
+     */
+    public CefRequestHandlerBuilder withExact(String path, Function<ApiRequest, ApiResponse<?>> handler) {
+        routeTree.addExactRoute(path, handler);
+        return this;
+    }
+
+    /**
+     * Add contains route (matches if path contains substring).
+     */
+    public CefRequestHandlerBuilder withContains(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
+        routeTree.addContainsRoute(substring, handler);
+        return this;
+    }
+
+    /**
+     * Build CefRequestHandler with configured routes.
+     */
+    public CefRequestHandler build() {
+        return new CefRequestHandler(project, routeTree);
+    }
+}

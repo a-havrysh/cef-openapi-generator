@@ -1,0 +1,58 @@
+package {{apiPackage}}.cef;
+
+import com.intellij.openapi.project.Project;
+import {{apiPackage}}.routing.RouteTree;
+import {{apiPackage}}.protocol.HttpMethod;
+import org.cef.browser.CefBrowser;
+import org.cef.browser.CefFrame;
+import org.cef.handler.CefRequestHandlerAdapter;
+import org.cef.handler.CefResourceRequestHandler;
+import org.cef.network.CefRequest;
+import org.cef.misc.BoolRef;
+
+/**
+ * Main CEF Request Handler with builder support.
+ * Use builder() for flexible configuration with custom routes.
+ * Auto-generated from OpenAPI specification.
+ */
+public final class CefRequestHandler extends CefRequestHandlerAdapter {
+
+    private final ApiResourceRequestHandler apiHandler;
+
+    CefRequestHandler(Project project, RouteTree routeTree) {
+        this.apiHandler = new ApiResourceRequestHandler(project, routeTree);
+    }
+
+    public static CefRequestHandlerBuilder builder(Project project) {
+        return CefRequestHandlerBuilder.builder(project);
+    }
+
+    @Override
+    public CefResourceRequestHandler getResourceRequestHandler(
+            CefBrowser browser,
+            CefFrame frame,
+            CefRequest request,
+            boolean isNavigation,
+            boolean isDownload,
+            String requestInitiator,
+            BoolRef disableDefaultHandling) {
+
+        String path = extractPath(request.getURL());
+        HttpMethod method = HttpMethod.valueOf(request.getMethod());
+
+        if (routeTree.match(path, method) != null) {
+            return apiHandler;
+        }
+
+        return null;
+    }
+
+    private String extractPath(String url) {
+        try {
+            java.net.URI uri = new java.net.URI(url);
+            return uri.getPath();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+}

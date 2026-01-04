@@ -1,0 +1,132 @@
+package {{apiPackage}}.cef;
+
+import {{apiPackage}}.protocol.ApiResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.cef.callback.CefCallback;
+import org.cef.handler.CefResourceHandlerAdapter;
+import org.cef.misc.IntRef;
+import org.cef.misc.StringRef;
+import org.cef.network.CefRequest;
+import org.cef.network.CefResponse;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
+import static java.lang.Math.min;
+import static java.nio.ByteBuffer.wrap;
+
+/**
+ * CEF Resource Handler that converts ApiResponse to CEF format.
+ * Auto-generated from OpenAPI specification.
+ */
+final class ApiResponseHandler extends CefResourceHandlerAdapter {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private final ByteBuffer data;
+    private final String contentType;
+    private final int statusCode;
+    private final String statusText;
+
+    private ApiResponseHandler(ByteBuffer data, String contentType, int statusCode, String statusText) {
+        this.data = data;
+        this.contentType = contentType;
+        this.statusCode = statusCode;
+        this.statusText = statusText;
+    }
+
+    public static ApiResponseHandler from(ApiResponse<?> response) {
+        if (response == null) {
+            return empty();
+        }
+
+        Object body = response.getBody();
+        String contentType = response.getContentType() != null ? response.getContentType() : "application/json";
+        int statusCode = response.getStatusCode();
+
+        if (body == null) {
+            return new ApiResponseHandler(wrap(new byte[0]), contentType, statusCode, "OK");
+        }
+
+        if (body instanceof byte[] bytes) {
+            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK");
+        }
+
+        if (body instanceof String text) {
+            byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK");
+        }
+
+        // Default: serialize to JSON
+        try {
+            String json = OBJECT_MAPPER.writeValueAsString(body);
+            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK");
+        } catch (Exception e) {
+            return error(500, "Failed to serialize response: " + e.getMessage());
+        }
+    }
+
+    public static ApiResponseHandler empty() {
+        return new ApiResponseHandler(wrap(new byte[0]), "text/plain", 204, "No Content");
+    }
+
+    public static ApiResponseHandler error(int statusCode, String message) {
+        ErrorResponse errorResponse = new ErrorResponse(statusCode, message);
+        try {
+            String json = OBJECT_MAPPER.writeValueAsString(errorResponse);
+            byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+            return new ApiResponseHandler(wrap(bytes), "application/json", statusCode, message);
+        } catch (Exception e) {
+            String fallback = "{\"status\":" + statusCode + ",\"message\":\"" + message + "\"}";
+            byte[] bytes = fallback.getBytes(StandardCharsets.UTF_8);
+            return new ApiResponseHandler(wrap(bytes), "application/json", statusCode, message);
+        }
+    }
+
+    @Override
+    public boolean processRequest(CefRequest request, CefCallback callback) {
+        callback.Continue();
+        return true;
+    }
+
+    @Override
+    public void getResponseHeaders(CefResponse response, IntRef responseLength, StringRef redirectUrl) {
+        response.setStatus(statusCode);
+        response.setStatusText(statusText);
+        response.setMimeType(contentType);
+        responseLength.set(data.remaining());
+    }
+
+    @Override
+    public boolean readResponse(byte[] buffer, int bytesToRead, IntRef bytesRead, CefCallback callback) {
+        int toRead = min(bytesToRead, data.remaining());
+        data.get(buffer, 0, toRead);
+        bytesRead.set(toRead);
+        return toRead > 0;
+    }
+
+    private static final class ErrorResponse {
+        private final int status;
+        private final String message;
+        private final long timestamp;
+
+        ErrorResponse(int status, String message) {
+            this.status = status;
+            this.message = message;
+            this.timestamp = System.currentTimeMillis();
+        }
+
+        public int getStatus() {
+            return status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public long getTimestamp() {
+            return timestamp;
+        }
+    }
+}

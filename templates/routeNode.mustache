@@ -1,0 +1,65 @@
+package {{apiPackage}}.routing;
+
+import {{apiPackage}}.protocol.HttpMethod;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * Node in the route tree structure.
+ * Represents one segment of a URL path.
+ * Auto-generated from OpenAPI specification.
+ */
+final class RouteNode {
+
+    private final String segment;
+    private final boolean isTemplate;
+    private final String variableName;
+
+    private final Map<String, RouteNode> literalChildren = new HashMap<>();
+    private RouteNode templateChild;
+    private final Map<HttpMethod, Object> handlers = new HashMap<>();
+
+    RouteNode(String segment) {
+        this.segment = segment;
+        this.isTemplate = false;
+        this.variableName = null;
+    }
+
+    RouteNode(String segment, String variableName) {
+        this.segment = segment;
+        this.isTemplate = true;
+        this.variableName = variableName;
+    }
+
+    String getSegment() {
+        return segment;
+    }
+
+    boolean isTemplate() {
+        return isTemplate;
+    }
+
+    String getVariableName() {
+        return variableName;
+    }
+
+    Map<String, RouteNode> getLiteralChildren() {
+        return literalChildren;
+    }
+
+    RouteNode getTemplateChild() {
+        return templateChild;
+    }
+
+    void setTemplateChild(RouteNode templateChild) {
+        this.templateChild = templateChild;
+    }
+
+    void addHandler(HttpMethod method, Object handler) {
+        handlers.put(method, handler);
+    }
+
+    Object getHandler(HttpMethod method) {
+        return handlers.get(method);
+    }
+}

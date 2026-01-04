@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: Example API
+  version: 1.0.0
+paths:
+  /api/hello:
+    get:
+      tags: [example]
+      operationId: getHello
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+components:
+  schemas:
+    Message:
+      type: object
+      properties:
+        text:
+          type: string

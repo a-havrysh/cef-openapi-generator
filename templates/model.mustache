@@ -1,0 +1,102 @@
+package {{package}};
+
+import java.util.*;
+{{#imports}}
+{{^contains(import, 'swagger')}}
+{{^contains(import, 'JsonNullable')}}
+import {{import}};
+{{/contains(import, 'JsonNullable')}}
+{{/contains(import, 'swagger')}}
+{{/imports}}
+
+/**
+ * {{classname}}{{#description}} - {{{.}}}{{/description}}
+ * Auto-generated from OpenAPI specification.
+ */
+{{#models}}
+{{#model}}
+{{#isEnum}}
+public enum {{classname}} {
+{{#allowableValues}}
+{{#enumVars}}
+    {{name}}{{#displayName}}("{{{displayName}}}"{{#enumValue}}, "{{{enumValue}}}"{{/enumValue}}){{/displayName}}{{^-last}},{{/-last}}{{#-last}}{{#displayName}};{{/displayName}}{{/-last}}
+{{/enumVars}}
+{{/allowableValues}}
+{{#vendorExtensions.hasDisplayNames}}
+
+    private final String displayName;
+{{#vendorExtensions.hasValues}}
+    private final String value;
+{{/vendorExtensions.hasValues}}
+
+    {{classname}}(String displayName{{#vendorExtensions.hasValues}}, String value{{/vendorExtensions.hasValues}}) {
+        this.displayName = displayName;
+{{#vendorExtensions.hasValues}}
+        this.value = value;
+{{/vendorExtensions.hasValues}}
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+{{#vendorExtensions.hasValues}}
+
+    public String getValue() {
+        return value;
+    }
+{{/vendorExtensions.hasValues}}
+{{/vendorExtensions.hasDisplayNames}}
+}
+{{/isEnum}}
+{{^isEnum}}
+public final class {{classname}} {
+{{#vars}}
+    private {{{dataType}}} {{name}};
+{{/vars}}
+
+    public {{classname}}() {
+    }
+
+    public {{classname}}({{#vars}}{{{dataType}}} {{name}}{{^-last}}, {{/-last}}{{/vars}}) {
+{{#vars}}
+        this.{{name}} = {{name}};
+{{/vars}}
+    }
+
+{{#vars}}
+    public {{{dataType}}} get{{#lambda.titlecase}}{{name}}{{/lambda.titlecase}}() {
+        return {{name}};
+    }
+
+    public void set{{#lambda.titlecase}}{{name}}{{/lambda.titlecase}}({{{dataType}}} {{name}}) {
+        this.{{name}} = {{name}};
+    }
+
+{{/vars}}
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+{{#vars}}
+        private {{{dataType}}} {{name}};
+{{/vars}}
+
+        private Builder() {
+        }
+
+{{#vars}}
+        public Builder {{name}}({{{dataType}}} {{name}}) {
+            this.{{name}} = {{name}};
+            return this;
+        }
+
+{{/vars}}
+        public {{classname}} build() {
+            return new {{classname}}({{#vars}}{{name}}{{^-last}}, {{/-last}}{{/vars}});
+        }
+    }
+}
+{{/isEnum}}
+{{/model}}
+{{/models}}

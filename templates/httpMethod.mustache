@@ -1,0 +1,13 @@
+package {{apiPackage}}.protocol;
+
+/**
+ * HTTP request methods enumeration.
+ * Auto-generated from OpenAPI specification.
+ */
+public enum HttpMethod {
+    GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS;
+
+    public static HttpMethod fromString(String method) {
+        return method == null ? GET : valueOf(method.toUpperCase());
+    }
+}

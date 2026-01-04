@@ -1,0 +1,44 @@
+package {{package}}.service;
+
+{{#imports}}
+import {{import}};
+{{/imports}}
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.protocol.ApiResponse;
+import {{apiPackage}}.exception.NotImplementedException;
+
+/**
+ * Service interface for {{classname}} operations.
+ * Override wrapper methods (handleXxx) for custom ApiResponse, or business methods (xxx) for simple logic.
+ * Auto-generated from OpenAPI specification.
+ */
+public interface {{classname}}Service {
+{{#operations}}
+{{#operation}}
+
+    /**
+     * Wrapper method: {{httpMethod}} {{path}}{{#summary}} : {{.}}{{/summary}}
+     * Override this for custom ApiResponse (e.g., custom content-type, status code).
+     * Default implementation calls business method and converts to ApiResponse.
+     */
+    default ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}}> handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}(ApiRequest request) {
+        {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} result = {{operationId}}({{#allParams}}{{#isPathParam}}request.getPathVariable("{{baseName}}"){{/isPathParam}}{{#isBodyParam}}request.getBody({{dataType}}.class){{/isBodyParam}}{{^-last}}, {{/-last}}{{/allParams}});
+        return ApiResponse.ok(result);
+    }
+
+    /**
+     * Business method: {{httpMethod}} {{path}}{{#summary}} : {{.}}{{/summary}}
+     * Override this to implement business logic.
+{{#allParams}}
+     * @param {{paramName}} {{description}}{{#required}} (required){{/required}}{{^required}} (optional{{#defaultValue}}, default to {{.}}{{/defaultValue}}){{/required}}
+{{/allParams}}
+{{#returnType}}
+     * @return {{.}}
+{{/returnType}}
+     */
+    default {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} {{operationId}}({{#allParams}}{{#isPathParam}}String {{paramName}}{{/isPathParam}}{{#isBodyParam}}{{dataType}} {{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}{{/allParams}}) {
+        throw new NotImplementedException("{{operationId}} not implemented");
+    }
+{{/operation}}
+{{/operations}}
+}
