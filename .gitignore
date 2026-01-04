@@ -25,3 +25,5 @@ bin/
 
 # Logs
 *.log
+/.vscode/
+/.history/
