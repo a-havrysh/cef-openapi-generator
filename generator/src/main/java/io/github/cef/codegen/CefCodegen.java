@@ -51,8 +51,8 @@ public class CefCodegen extends AbstractJavaCodegen implements CodegenConfig {
         // Add CEF integration layer
         var cefPackage = apiPackage + ".cef";
         var cefFolder = (sourceFolder + File.separator + cefPackage).replace(".", File.separator);
-        supportingFiles.add(new SupportingFile("cefRequestHandler.mustache", cefFolder, "CefRequestHandler.java"));
-        supportingFiles.add(new SupportingFile("cefRequestHandlerBuilder.mustache", cefFolder, "CefRequestHandlerBuilder.java"));
+        supportingFiles.add(new SupportingFile("apiCefRequestHandler.mustache", cefFolder, "ApiCefRequestHandler.java"));
+        supportingFiles.add(new SupportingFile("apiCefRequestHandlerBuilder.mustache", cefFolder, "ApiCefRequestHandlerBuilder.java"));
         supportingFiles.add(new SupportingFile("apiResourceRequestHandler.mustache", cefFolder, "ApiResourceRequestHandler.java"));
         supportingFiles.add(new SupportingFile("apiResponseHandler.mustache", cefFolder, "ApiResponseHandler.java"));
 
