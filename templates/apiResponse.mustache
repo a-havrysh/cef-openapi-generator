@@ -25,44 +25,105 @@ public final class ApiResponse<T> {
         this.headers = headers;
     }
 
+    /**
+     * Create successful response with JSON content type.
+     *
+     * @param body response body
+     * @param <T>  type of body
+     * @return ApiResponse with 200 status
+     */
     public static <T> ApiResponse<T> ok(T body) {
         return new ApiResponse<>(body, "application/json", 200, Collections.emptyMap());
     }
 
+    /**
+     * Create successful response with custom content type.
+     *
+     * @param body        response body
+     * @param contentType MIME type
+     * @param <T>         type of body
+     * @return ApiResponse with 200 status
+     */
     public static <T> ApiResponse<T> ok(T body, String contentType) {
         return new ApiResponse<>(body, contentType, 200, Collections.emptyMap());
     }
 
+    /**
+     * Create 204 No Content response.
+     *
+     * @return ApiResponse with no body
+     */
     public static ApiResponse<Void> noContent() {
         return new ApiResponse<>(null, "text/plain", 204, Collections.emptyMap());
     }
 
+    /**
+     * Create response with custom status code.
+     *
+     * @param statusCode HTTP status code
+     * @param body       response body
+     * @param <T>        type of body
+     * @return ApiResponse with specified status
+     */
     public static <T> ApiResponse<T> status(int statusCode, T body) {
         return new ApiResponse<>(body, "application/json", statusCode, Collections.emptyMap());
     }
 
+    /**
+     * Set custom content type (builder pattern).
+     *
+     * @param contentType MIME type
+     * @return new ApiResponse with updated content type
+     */
     public ApiResponse<T> contentType(String contentType) {
         return new ApiResponse<>(this.body, contentType, this.statusCode, this.headers);
     }
 
+    /**
+     * Add custom header (builder pattern).
+     *
+     * @param name  header name
+     * @param value header value
+     * @return new ApiResponse with added header
+     */
     public ApiResponse<T> header(String name, String value) {
         Map<String, String> newHeaders = new HashMap<>(this.headers);
         newHeaders.put(name, value);
         return new ApiResponse<>(this.body, this.contentType, this.statusCode, newHeaders);
     }
 
+    /**
+     * Get response body.
+     *
+     * @return body object
+     */
     public T getBody() {
         return body;
     }
 
+    /**
+     * Get content type.
+     *
+     * @return MIME type string
+     */
     public String getContentType() {
         return contentType;
     }
 
+    /**
+     * Get HTTP status code.
+     *
+     * @return status code (e.g., 200, 404, 500)
+     */
     public int getStatusCode() {
         return statusCode;
     }
 
+    /**
+     * Get custom headers.
+     *
+     * @return map of header name to value
+     */
     public Map<String, String> getHeaders() {
         return headers;
     }
