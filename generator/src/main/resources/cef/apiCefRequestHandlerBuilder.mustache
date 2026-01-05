@@ -75,11 +75,19 @@ public final class ApiCefRequestHandlerBuilder {
      * Useful for handling entire API namespaces or static file directories.
      *
      * @param prefix  URL prefix to match (e.g., "/api/v1", "/static")
+     * @param method  HTTP method to match (GET, POST, etc.)
      * @param handler function to process matching requests
      * @return this builder for chaining
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withPrefix("/static", HttpMethod.GET, staticFileHandler)
+     *     .build();
+     * }</pre>
      */
-    public ApiCefRequestHandlerBuilder withPrefix(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
-        routeTree.addPrefixRoute(prefix, handler);
+    public ApiCefRequestHandlerBuilder withPrefix(String prefix, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        routeTree.addPrefixRoute(prefix, method, handler);
         return this;
     }
 
@@ -88,11 +96,19 @@ public final class ApiCefRequestHandlerBuilder {
      * Provides precise routing for specific endpoints.
      *
      * @param path    exact URL path to match (e.g., "/health", "/api/status")
+     * @param method  HTTP method to match (GET, POST, etc.)
      * @param handler function to process matching requests
      * @return this builder for chaining
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withExact("/health", HttpMethod.GET, healthCheckHandler)
+     *     .build();
+     * }</pre>
      */
-    public ApiCefRequestHandlerBuilder withExact(String path, Function<ApiRequest, ApiResponse<?>> handler) {
-        routeTree.addExactRoute(path, handler);
+    public ApiCefRequestHandlerBuilder withExact(String path, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        routeTree.addExactRoute(path, method, handler);
         return this;
     }
 
@@ -101,11 +117,41 @@ public final class ApiCefRequestHandlerBuilder {
      * Useful for wildcard-like matching patterns.
      *
      * @param substring substring to search for in path (e.g., ".json", "/admin/")
+     * @param method    HTTP method to match (GET, POST, etc.)
      * @param handler   function to process matching requests
      * @return this builder for chaining
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withContains(".json", HttpMethod.GET, jsonFileHandler)
+     *     .build();
+     * }</pre>
      */
-    public ApiCefRequestHandlerBuilder withContains(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
-        routeTree.addContainsRoute(substring, handler);
+    public ApiCefRequestHandlerBuilder withContains(String substring, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        routeTree.addContainsRoute(substring, method, handler);
+        return this;
+    }
+
+    /**
+     * Set fallback handler for a specific HTTP method for requests that don't match any registered routes.
+     * This handler will be called when no route matches the incoming request with the specified HTTP method.
+     *
+     * @param method  HTTP method to match (GET, POST, etc.)
+     * @param handler fallback handler function to process unmatched requests
+     * @return this builder for chaining
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withApiRoutes()
+     *     .withFallback(HttpMethod.GET, request -> ApiResponse.ok("Default GET response"))
+     *     .withFallback(HttpMethod.POST, request -> ApiResponse.notFound("POST not found"))
+     *     .build();
+     * }</pre>
+     */
+    public ApiCefRequestHandlerBuilder withFallback(HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        routeTree.setFallback(method, handler);
         return this;
     }
 

@@ -71,25 +71,29 @@ public final class RouteTree {
     /**
      * Prefix-based routes for paths that start with a specific prefix.
      * Not cached to avoid cache pollution.
+     * Map structure: prefix -> HTTP method -> handler
      */
-    private final Map<String, Function<ApiRequest, ApiResponse<?>>> prefixRoutes = new HashMap<>();
+    private final Map<String, Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>>> prefixRoutes = new HashMap<>();
 
     /**
      * Exact match routes for simple paths without variables.
      * Not cached due to O(1) lookup performance.
+     * Map structure: path -> HTTP method -> handler
      */
-    private final Map<String, Function<ApiRequest, ApiResponse<?>>> exactSimpleRoutes = new HashMap<>();
+    private final Map<String, Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>>> exactSimpleRoutes = new HashMap<>();
 
     /**
      * Substring-based routes for paths containing a specific substring.
      * Not cached to avoid cache pollution.
+     * Map structure: substring -> HTTP method -> handler
      */
-    private final Map<String, Function<ApiRequest, ApiResponse<?>>> containsRoutes = new HashMap<>();
+    private final Map<String, Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>>> containsRoutes = new HashMap<>();
 
     /**
-     * Fallback handler for unmatched routes.
+     * Fallback handlers for unmatched routes, keyed by HTTP method.
+     * Allows different fallback behavior for different HTTP methods.
      */
-    private Function<ApiRequest, ApiResponse<?>> fallbackHandler;
+    private final Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> fallbackHandlers = new HashMap<>();
 
     /**
      * Add a route pattern with path variables to the tree.
@@ -137,16 +141,17 @@ public final class RouteTree {
      * Not cached to avoid cache pollution from dynamic paths.
      *
      * @param prefix  URL path prefix (e.g., "/static/")
+     * @param method  HTTP method (GET, POST, etc.)
      * @param handler request handler function
      *
      * <p>Example:
      * <pre>{@code
-     * addPrefixRoute("/static/", staticFileHandler);
-     * // Matches: /static/css/style.css, /static/js/app.js, etc.
+     * addPrefixRoute("/static/", HttpMethod.GET, staticFileHandler);
+     * // Matches: GET /static/css/style.css, GET /static/js/app.js, etc.
      * }</pre>
      */
-    public void addPrefixRoute(String prefix, Function<ApiRequest, ApiResponse<?>> handler) {
-        prefixRoutes.put(prefix, handler);
+    public void addPrefixRoute(String prefix, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        prefixRoutes.computeIfAbsent(prefix, k -> new HashMap<>()).put(method, handler);
     }
 
     /**
@@ -154,16 +159,17 @@ public final class RouteTree {
      * Uses O(1) lookup, no caching needed.
      *
      * @param path    exact URL path
+     * @param method  HTTP method (GET, POST, etc.)
      * @param handler request handler function
      *
      * <p>Example:
      * <pre>{@code
-     * addExactRoute("/health", healthCheckHandler);
-     * // Only matches exactly: /health
+     * addExactRoute("/health", HttpMethod.GET, healthCheckHandler);
+     * // Only matches exactly: GET /health
      * }</pre>
      */
-    public void addExactRoute(String path, Function<ApiRequest, ApiResponse<?>> handler) {
-        exactSimpleRoutes.put(path, handler);
+    public void addExactRoute(String path, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        exactSimpleRoutes.computeIfAbsent(path, k -> new HashMap<>()).put(method, handler);
     }
 
     /**
@@ -171,26 +177,34 @@ public final class RouteTree {
      * Not cached to avoid cache pollution from dynamic paths.
      *
      * @param substring substring to search for in path
+     * @param method    HTTP method (GET, POST, etc.)
      * @param handler   request handler function
      *
      * <p>Example:
      * <pre>{@code
-     * addContainsRoute(".min.", minifiedResourceHandler);
-     * // Matches: /js/app.min.js, /css/style.min.css, etc.
+     * addContainsRoute(".min.", HttpMethod.GET, minifiedResourceHandler);
+     * // Matches: GET /js/app.min.js, GET /css/style.min.css, etc.
      * }</pre>
      */
-    public void addContainsRoute(String substring, Function<ApiRequest, ApiResponse<?>> handler) {
-        containsRoutes.put(substring, handler);
+    public void addContainsRoute(String substring, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        containsRoutes.computeIfAbsent(substring, k -> new HashMap<>()).put(method, handler);
     }
 
     /**
-     * Set fallback handler (called when no routes match).
+     * Set fallback handler for a specific HTTP method (called when no routes match).
      * Useful for serving static files or default responses.
      *
+     * @param method  HTTP method (GET, POST, etc.)
      * @param handler fallback handler function
+     *
+     * <p>Example:
+     * <pre>{@code
+     * setFallback(HttpMethod.GET, request -> ApiResponse.ok("Default GET response"));
+     * setFallback(HttpMethod.POST, request -> ApiResponse.notFound("POST not found"));
+     * }</pre>
      */
-    public void setFallback(Function<ApiRequest, ApiResponse<?>> handler) {
-        this.fallbackHandler = handler;
+    public void setFallback(HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        this.fallbackHandlers.put(method, handler);
     }
 
     /**
@@ -224,24 +238,37 @@ public final class RouteTree {
             return result;
         }
 
-        Function<ApiRequest, ApiResponse<?>> exactHandler = exactSimpleRoutes.get(path);
-        if (exactHandler != null) {
-            return new MatchResult(exactHandler, Map.of());
+        // 3. Exact simple routes with method matching
+        Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> exactHandlers = exactSimpleRoutes.get(path);
+        if (exactHandlers != null) {
+            Function<ApiRequest, ApiResponse<?>> exactHandler = exactHandlers.get(method);
+            if (exactHandler != null) {
+                return new MatchResult(exactHandler, Map.of());
+            }
         }
 
-        for (Map.Entry<String, Function<ApiRequest, ApiResponse<?>>> entry : prefixRoutes.entrySet()) {
+        // 4. Prefix routes with method matching
+        for (Map.Entry<String, Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>>> entry : prefixRoutes.entrySet()) {
             if (path.startsWith(entry.getKey())) {
-                return new MatchResult(entry.getValue(), Map.of());
+                Function<ApiRequest, ApiResponse<?>> handler = entry.getValue().get(method);
+                if (handler != null) {
+                    return new MatchResult(handler, Map.of());
+                }
             }
         }
 
-        for (Map.Entry<String, Function<ApiRequest, ApiResponse<?>>> entry : containsRoutes.entrySet()) {
+        // 5. Contains routes with method matching
+        for (Map.Entry<String, Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>>> entry : containsRoutes.entrySet()) {
             if (path.contains(entry.getKey())) {
-                return new MatchResult(entry.getValue(), Map.of());
+                Function<ApiRequest, ApiResponse<?>> handler = entry.getValue().get(method);
+                if (handler != null) {
+                    return new MatchResult(handler, Map.of());
+                }
             }
         }
 
-        // 5. Fallback handler
+        // 6. Fallback handler for specific HTTP method
+        Function<ApiRequest, ApiResponse<?>> fallbackHandler = fallbackHandlers.get(method);
         if (fallbackHandler != null) {
             return new MatchResult(fallbackHandler, Map.of());
         }

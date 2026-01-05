@@ -50,7 +50,7 @@ To create a GitHub Personal Access Token:
 ```gradle
 buildscript {
     dependencies {
-        classpath("io.github.cef:generator:1.0.4")
+        classpath("io.github.cef:generator:1.0.6")
     }
 }
 
@@ -72,7 +72,7 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-        classpath("io.github.cef:generator:1.0.4")
+        classpath("io.github.cef:generator:1.0.6")
     }
 }
 ```
@@ -119,19 +119,27 @@ var handler = ApiCefRequestHandler.builder(project)
 
 browser.addRequestHandler(handler, browser.getCefBrowser());
 
-// With custom routes
+// With custom routes (HTTP method-specific)
 var handler = ApiCefRequestHandler.builder(project)
     .withApiRoutes()
-    .withPrefix("/static", request -> {
+    .withPrefix("/static", HttpMethod.GET, request -> {
         byte[] data = readStaticFile(request.getPath());
         return ApiResponse.ok(data, ContentTypeResolver.resolve(request.getPath()));
     })
-    .withExact("/health", request -> ApiResponse.ok("OK"))
-    .withFallback(request -> {
-        // Fallback for unmatched routes (e.g., static files)
+    .withExact("/health", HttpMethod.GET, request -> ApiResponse.ok("OK"))
+    .withContains(".json", HttpMethod.POST, request -> {
+        // Handle all POST requests containing ".json" in path
+        return processJsonRequest(request);
+    })
+    .withFallback(HttpMethod.GET, request -> {
+        // Fallback for unmatched GET requests (e.g., static files)
         String path = request.getPath().substring(1);
         byte[] data = readResource(path);
         return ApiResponse.ok(data, ContentTypeResolver.resolve(path));
+    })
+    .withFallback(HttpMethod.POST, request -> {
+        // Different fallback for POST requests
+        return ApiResponse.notFound("POST endpoint not found");
     })
     .build();
 
@@ -145,8 +153,24 @@ var handler = ApiCefRequestHandler.builder(project)
 var handler = ApiCefRequestHandler.builder(project)
     .withUrlFilter("http://localhost:5173")
     .withApiRoutes()
-    .withPrefix("/static", ...)
+    .withPrefix("/static", HttpMethod.GET, staticFileHandler)
     .build();
+```
+
+**HTTP Method Support:**
+
+All custom route methods (`withPrefix`, `withExact`, `withContains`, `withFallback`) support HTTP method specification:
+- Allows different handlers for GET vs POST on the same path
+- Enables method-specific fallback behavior
+- Example: Serve static files only for GET, reject POST with 404
+
+```java
+// Different handlers for different methods
+builder
+    .withPrefix("/api", HttpMethod.GET, getHandler)
+    .withPrefix("/api", HttpMethod.POST, postHandler)
+    .withFallback(HttpMethod.GET, serveStaticFile)
+    .withFallback(HttpMethod.POST, notFoundHandler);
 ```
 
 **URL Filtering:**
@@ -278,6 +302,17 @@ Browser → ApiCefRequestHandler (RouteTree check)
     → Service.handleXxx() → ApiResponse<T>
       → ApiResponseHandler → CEF
 ```
+
+## Testing
+
+For comprehensive testing examples and best practices, see [TESTING.md](TESTING.md).
+
+The testing guide covers:
+- Unit tests for HTTP method support
+- Route matching priority
+- CRUD operations testing
+- Performance testing
+- Manual testing examples
 
 ## License
 
