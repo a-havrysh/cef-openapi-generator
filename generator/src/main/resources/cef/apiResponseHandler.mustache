@@ -11,6 +11,9 @@ import org.cef.network.CefResponse;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static java.lang.Math.min;
 import static java.nio.ByteBuffer.wrap;
@@ -42,6 +45,7 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
     private final String contentType;
     private final int statusCode;
     private final String statusText;
+    private final Map<String, String> headers;
 
     /**
      * Private constructor for factory methods only.
@@ -50,12 +54,14 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
      * @param contentType MIME type of response
      * @param statusCode  HTTP status code
      * @param statusText  HTTP status text
+     * @param headers     additional HTTP headers
      */
-    private ApiResponseHandler(ByteBuffer data, String contentType, int statusCode, String statusText) {
+    private ApiResponseHandler(ByteBuffer data, String contentType, int statusCode, String statusText, Map<String, String> headers) {
         this.data = data;
         this.contentType = contentType;
         this.statusCode = statusCode;
         this.statusText = statusText;
+        this.headers = headers != null ? headers : new HashMap<>();
     }
 
     /**
@@ -74,6 +80,19 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
      * @return CEF resource handler, or empty handler if response is null
      */
     public static ApiResponseHandler from(ApiResponse<?> response) {
+        return from(response, null, null);
+    }
+
+    /**
+     * Create CEF resource handler from ApiResponse with CORS support.
+     * Automatically adds CORS headers based on origin and allowed origins.
+     *
+     * @param response           ApiResponse to convert
+     * @param origin             request origin header value
+     * @param corsAllowedOrigins allowed CORS origins (empty = allow all)
+     * @return CEF resource handler with CORS headers
+     */
+    public static ApiResponseHandler from(ApiResponse<?> response, String origin, List<String> corsAllowedOrigins) {
         if (response == null) {
             return empty();
         }
@@ -82,24 +101,29 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
         String contentType = response.getContentType() != null ? response.getContentType() : "application/json";
         int statusCode = response.getStatusCode();
 
+        Map<String, String> headers = new HashMap<>();
+        if (corsAllowedOrigins != null && origin != null) {
+            addCorsHeaders(headers, origin, corsAllowedOrigins);
+        }
+
         if (body == null) {
-            return new ApiResponseHandler(wrap(new byte[0]), contentType, statusCode, "OK");
+            return new ApiResponseHandler(wrap(new byte[0]), contentType, statusCode, "OK", headers);
         }
 
         if (body instanceof byte[] bytes) {
-            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK");
+            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK", headers);
         }
 
         if (body instanceof String text) {
             byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
-            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK");
+            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK", headers);
         }
 
         // Default: serialize to JSON
         try {
             String json = OBJECT_MAPPER.writeValueAsString(body);
             byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK");
+            return new ApiResponseHandler(wrap(bytes), contentType, statusCode, "OK", headers);
         } catch (Exception e) {
             return error(500, "Failed to serialize response: " + e.getMessage());
         }
@@ -111,7 +135,7 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
      * @return handler with no body and 204 status
      */
     public static ApiResponseHandler empty() {
-        return new ApiResponseHandler(wrap(new byte[0]), "text/plain", 204, "No Content");
+        return new ApiResponseHandler(wrap(new byte[0]), "text/plain", 204, "No Content", null);
     }
 
     /**
@@ -127,11 +151,52 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
         try {
             String json = OBJECT_MAPPER.writeValueAsString(errorResponse);
             byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
-            return new ApiResponseHandler(wrap(bytes), "application/json", statusCode, message);
+            return new ApiResponseHandler(wrap(bytes), "application/json", statusCode, message, null);
         } catch (Exception e) {
             String fallback = "{\"status\":" + statusCode + ",\"message\":\"" + message + "\"}";
             byte[] bytes = fallback.getBytes(StandardCharsets.UTF_8);
-            return new ApiResponseHandler(wrap(bytes), "application/json", statusCode, message);
+            return new ApiResponseHandler(wrap(bytes), "application/json", statusCode, message, null);
+        }
+    }
+
+    /**
+     * Create CORS preflight response for OPTIONS requests.
+     * Returns 200 OK with appropriate CORS headers.
+     *
+     * @param origin             request origin header value
+     * @param corsAllowedOrigins allowed CORS origins (empty = allow all)
+     * @return handler with CORS preflight headers
+     */
+    public static ApiResponseHandler corsPreflightResponse(String origin, List<String> corsAllowedOrigins) {
+        Map<String, String> headers = new HashMap<>();
+        addCorsHeaders(headers, origin, corsAllowedOrigins);
+        headers.put("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+        headers.put("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept");
+        headers.put("Access-Control-Max-Age", "86400"); // 24 hours
+
+        return new ApiResponseHandler(wrap(new byte[0]), "text/plain", 200, "OK", headers);
+    }
+
+    /**
+     * Add CORS headers to the response headers map.
+     *
+     * @param headers            headers map to add CORS headers to
+     * @param origin             request origin header value
+     * @param corsAllowedOrigins allowed CORS origins (empty = allow all)
+     */
+    private static void addCorsHeaders(Map<String, String> headers, String origin, List<String> corsAllowedOrigins) {
+        if (corsAllowedOrigins == null) {
+            return;
+        }
+
+        // Allow all origins if list is empty
+        if (corsAllowedOrigins.isEmpty()) {
+            headers.put("Access-Control-Allow-Origin", "*");
+            headers.put("Access-Control-Allow-Credentials", "false");
+        } else if (origin != null && corsAllowedOrigins.contains(origin)) {
+            // Allow specific origin if it's in the allowed list
+            headers.put("Access-Control-Allow-Origin", origin);
+            headers.put("Access-Control-Allow-Credentials", "true");
         }
     }
 
@@ -151,7 +216,7 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
 
     /**
      * Called by CEF to get response headers and metadata.
-     * Sets status code, MIME type, and content length.
+     * Sets status code, MIME type, content length, and custom headers.
      *
      * @param response       CEF response object to populate
      * @param responseLength output parameter for content length
@@ -163,6 +228,11 @@ final class ApiResponseHandler extends CefResourceHandlerAdapter {
         response.setStatusText(statusText);
         response.setMimeType(contentType);
         responseLength.set(data.remaining());
+
+        // Add custom headers (including CORS headers)
+        if (!headers.isEmpty()) {
+            response.setHeaderMap(headers);
+        }
     }
 
     /**

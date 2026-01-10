@@ -121,11 +121,19 @@ public interface {{classname}}Service {
 
     /**
      * Wrapper method: {{httpMethod}} {{path}}{{#summary}} : {{.}}{{/summary}}
-     * Override this for custom ApiResponse (e.g., custom content-type, status code).
-     * Default implementation calls business method and converts to ApiResponse.
+     * Override this for custom ApiResponse (e.g., custom content-type, status code, headers).
+     * Default implementation calls business method and wraps result in ApiResponse.ok().
+     *
+{{#allParams}}
+     * @param {{paramName}} {{description}}{{#required}} (required){{/required}}{{^required}} (optional{{#defaultValue}}, default to {{.}}{{/defaultValue}}){{/required}}
+{{/allParams}}
+     * @param browser CEF browser instance for JavaScript execution
+     * @param frame CEF frame instance
+     * @param cefRequest CEF request for accessing headers and metadata
+     * @return ApiResponse with HTTP status, headers, and body
      */
-    default ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}}> handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}(ApiRequest request) {
-        {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} result = {{operationId}}({{#allParams}}{{#isPathParam}}request.getPathVariable("{{baseName}}"){{/isPathParam}}{{#isBodyParam}}request.getBody({{dataType}}.class){{/isBodyParam}}{{^-last}}, {{/-last}}{{/allParams}});
+    default ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}}> handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{#isPathParam}}String {{paramName}}{{/isPathParam}}{{#isQueryParam}}{{dataType}} {{paramName}}{{/isQueryParam}}{{#isBodyParam}}{{dataType}} {{paramName}}{{/isBodyParam}}, {{/allParams}}org.cef.browser.CefBrowser browser, org.cef.browser.CefFrame frame, org.cef.network.CefRequest cefRequest) {
+        {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} result = {{operationId}}({{#allParams}}{{paramName}}{{^-last}}, {{/-last}}{{/allParams}});
         return ApiResponse.ok(result);
     }
 
@@ -139,7 +147,7 @@ public interface {{classname}}Service {
      * @return {{.}}
 {{/returnType}}
      */
-    default {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} {{operationId}}({{#allParams}}{{#isPathParam}}String {{paramName}}{{/isPathParam}}{{#isBodyParam}}{{dataType}} {{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}{{/allParams}}) {
+    default {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} {{operationId}}({{#allParams}}{{#isPathParam}}String {{paramName}}{{/isPathParam}}{{#isQueryParam}}{{dataType}} {{paramName}}{{/isQueryParam}}{{#isBodyParam}}{{dataType}} {{paramName}}{{/isBodyParam}}{{^-last}}, {{/-last}}{{/allParams}}) {
         throw new NotImplementedException("{{operationId}} not implemented");
     }
 {{/operation}}

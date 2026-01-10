@@ -6,18 +6,13 @@ import {{apiPackage}}.protocol.ApiRequest;
 import {{apiPackage}}.protocol.ApiResponse;
 import {{apiPackage}}.protocol.HttpMethod;
 import {{apiPackage}}.exception.ApiException;
-{{#apiInfo}}
-{{#apis}}
-import {{apiPackage}}.service.{{classname}}Service;
-{{/apis}}
-{{/apiInfo}}
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 import org.cef.handler.CefResourceHandler;
 import org.cef.handler.CefResourceRequestHandlerAdapter;
 import org.cef.network.CefRequest;
 
-import java.util.function.Function;
+import java.util.List;
 
 /**
  * Single CEF Resource Request Handler for all APIs.
@@ -43,16 +38,22 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
 
     private final Project project;
     private final RouteTree routeTree;
+    private final List<{{apiPackage}}.interceptor.RequestInterceptor> interceptors;
+    private final {{apiPackage}}.interceptor.ExceptionHandler exceptionHandler;
 
     /**
      * Package-private constructor for CefRequestHandler use only.
      *
-     * @param project   IntelliJ project instance for service access
-     * @param routeTree configured route tree with all registered handlers
+     * @param project          IntelliJ project instance for service access
+     * @param routeTree        configured route tree with all registered handlers
+     * @param interceptors     request/response interceptors
+     * @param exceptionHandler exception handler for centralized error handling
      */
-    public ApiResourceRequestHandler(Project project, RouteTree routeTree) {
+    public ApiResourceRequestHandler(Project project, RouteTree routeTree, List<{{apiPackage}}.interceptor.RequestInterceptor> interceptors, {{apiPackage}}.interceptor.ExceptionHandler exceptionHandler) {
         this.project = project;
         this.routeTree = routeTree;
+        this.interceptors = interceptors != null ? interceptors : java.util.Collections.emptyList();
+        this.exceptionHandler = exceptionHandler != null ? exceptionHandler : {{apiPackage}}.interceptor.ExceptionHandler.DEFAULT;
     }
 
     /**
@@ -73,6 +74,7 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
     @Override
     public CefResourceHandler getResourceHandler(CefBrowser browser, CefFrame frame, CefRequest cefRequest) {
         ApiRequest request = new ApiRequest(cefRequest, browser, frame);
+        long startTime = System.currentTimeMillis();
 
         try {
             RouteTree.MatchResult match = routeTree.match(request.getPath(), request.getMethod());
@@ -82,15 +84,45 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
 
             request.setPathVariables(match.pathVariables());
 
-            @SuppressWarnings("unchecked")
-            Function<ApiRequest, ApiResponse<?>> handler = (Function<ApiRequest, ApiResponse<?>>) match.handler();
-            ApiResponse<?> response = handler.apply(request);
+            // Call beforeHandle interceptors
+            for ({{apiPackage}}.interceptor.RequestInterceptor interceptor : interceptors) {
+                try {
+                    interceptor.beforeHandle(cefRequest, match.pathVariables());
+                } catch (Exception e) {
+                    // Interceptor can abort request - handle via exception handler
+                    ApiResponse<?> errorResponse = exceptionHandler.handleException(e, cefRequest);
+                    return ApiResponseHandler.from(errorResponse);
+                }
+            }
+
+            // Execute handler
+            ApiResponse<?> response = match.handler().apply(request);
+
+            // Call afterHandle interceptors
+            long duration = System.currentTimeMillis() - startTime;
+            for ({{apiPackage}}.interceptor.RequestInterceptor interceptor : interceptors) {
+                try {
+                    interceptor.afterHandle(response, duration);
+                } catch (Exception e) {
+                    // Log but don't fail the request
+                    System.err.println("Interceptor afterHandle error: " + e.getMessage());
+                }
+            }
 
             return ApiResponseHandler.from(response);
-        } catch (ApiException e) {
-            return ApiResponseHandler.error(e.getStatusCode(), e.getMessage());
         } catch (Exception e) {
-            return ApiResponseHandler.error(500, "Internal server error: " + e.getMessage());
+            // Call onError interceptors
+            for ({{apiPackage}}.interceptor.RequestInterceptor interceptor : interceptors) {
+                try {
+                    interceptor.onError(e, cefRequest);
+                } catch (Exception ex) {
+                    System.err.println("Interceptor onError failed: " + ex.getMessage());
+                }
+            }
+
+            // Use exception handler for error response
+            ApiResponse<?> errorResponse = exceptionHandler.handleException(e, cefRequest);
+            return ApiResponseHandler.from(errorResponse);
         }
     }
 }

@@ -1,0 +1,64 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.exception.ApiException;
+import org.cef.network.CefRequest;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * URL filtering interceptor.
+ * Allows only whitelisted URL prefixes to be processed.
+ * Requests to non-whitelisted URLs are rejected before route matching.
+ *
+ * <p>Automatically added when using {@code .withUrlFilter()} or {@code .withUrlFilter(prefixes...)} in builder.</p>
+ *
+ * <p>Use cases:</p>
+ * <ul>
+ *   <li>Restrict handler to specific domains (e.g., only localhost:5173)</li>
+ *   <li>Multiple allowed URL prefixes</li>
+ *   <li>Security - prevent handling unexpected domains</li>
+ * </ul>
+ *
+ * <p><b>Usage:</b> Automatically configured via builder, no manual instantiation needed.</p>
+ *
+ * @see RequestInterceptor
+ */
+public final class UrlFilterInterceptor implements RequestInterceptor {
+
+    private final List<String> allowedPrefixes;
+
+    /**
+     * Create URL filter interceptor.
+     *
+     * @param allowedPrefixes allowed URL prefixes (e.g., "http://localhost:5173")
+     */
+    public UrlFilterInterceptor(List<String> allowedPrefixes) {
+        this.allowedPrefixes = allowedPrefixes;
+    }
+
+    @Override
+    public void beforeHandle(CefRequest request, Map<String, String> pathVariables) throws Exception {
+        String url = request.getURL();
+
+        if (url == null || allowedPrefixes.isEmpty()) {
+            throw new ApiException(403, "URL filtering enabled but no URL provided or no prefixes configured");
+        }
+
+        // Check if URL matches any allowed prefix
+        boolean matched = allowedPrefixes.stream().anyMatch(url::startsWith);
+
+        if (!matched) {
+            throw new ApiException(403, "URL not allowed: " + url);
+        }
+    }
+
+    /**
+     * Get allowed URL prefixes.
+     *
+     * @return allowed prefixes
+     */
+    public List<String> getAllowedPrefixes() {
+        return allowedPrefixes;
+    }
+}

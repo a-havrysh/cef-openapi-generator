@@ -128,6 +128,10 @@ public final class ApiRequest {
         return queryParams;
     }
 
+    public String getQueryParam(String name) {
+        return getQueryParams().get(name);
+    }
+
     public Map<String, String> getPathVariables() {
         return pathVariables;
     }
@@ -166,6 +170,14 @@ public final class ApiRequest {
      */
     public void setPathVariables(Map<String, String> pathVariables) {
         this.pathVariables = pathVariables != null ? pathVariables : Collections.emptyMap();
+    }
+
+    /**
+     * Get HTTP header value by name.
+     * Used for CORS origin checking and other header-based logic.
+     */
+    public String getHeader(String headerName) {
+        return cefRequest.getHeaderByName(headerName);
     }
 
     private String extractBodyString() {

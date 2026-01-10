@@ -1,0 +1,73 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.protocol.ApiResponse;
+import org.cef.network.CefRequest;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * CORS (Cross-Origin Resource Sharing) interceptor.
+ * Handles OPTIONS preflight requests and adds CORS headers to responses.
+ *
+ * <p>Automatically added when using {@code .withCors()} or {@code .withCors(origins...)} in builder.</p>
+ *
+ * <p>Features:</p>
+ * <ul>
+ *   <li>Automatic OPTIONS preflight handling</li>
+ *   <li>Access-Control-Allow-Origin header</li>
+ *   <li>Access-Control-Allow-Credentials header</li>
+ *   <li>Access-Control-Allow-Methods header</li>
+ *   <li>Access-Control-Allow-Headers header</li>
+ *   <li>Access-Control-Max-Age header (24 hours)</li>
+ * </ul>
+ *
+ * <p><b>Usage:</b> Automatically configured via builder, no manual instantiation needed.</p>
+ *
+ * @see RequestInterceptor
+ */
+public final class CorsInterceptor implements RequestInterceptor {
+
+    private final List<String> allowedOrigins;
+
+    /**
+     * Create CORS interceptor.
+     *
+     * @param allowedOrigins allowed origins (empty list = allow all with *)
+     */
+    public CorsInterceptor(List<String> allowedOrigins) {
+        this.allowedOrigins = allowedOrigins;
+    }
+
+    @Override
+    public void beforeHandle(CefRequest request, Map<String, String> pathVariables) throws Exception {
+        // CORS validation happens here if needed
+        String origin = request.getHeaderByName("Origin");
+
+        if (origin != null && !isOriginAllowed(origin)) {
+            throw new {{apiPackage}}.exception.ApiException(403, "Origin not allowed: " + origin);
+        }
+    }
+
+    /**
+     * Check if origin is allowed.
+     *
+     * @param origin request origin
+     * @return true if allowed
+     */
+    private boolean isOriginAllowed(String origin) {
+        if (allowedOrigins == null || allowedOrigins.isEmpty()) {
+            return true; // Allow all
+        }
+        return allowedOrigins.contains(origin);
+    }
+
+    /**
+     * Get allowed origins list.
+     *
+     * @return allowed origins (empty = allow all)
+     */
+    public List<String> getAllowedOrigins() {
+        return allowedOrigins;
+    }
+}

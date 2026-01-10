@@ -1,0 +1,99 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.protocol.ApiResponse;
+import org.cef.network.CefRequest;
+
+import java.util.Map;
+
+/**
+ * Interceptor for request/response processing.
+ * Allows pre/post processing of all API requests for cross-cutting concerns.
+ *
+ * <p>Use cases:</p>
+ * <ul>
+ *   <li>Logging - log all requests and responses</li>
+ *   <li>Metrics - track request count, duration, errors</li>
+ *   <li>Authentication - validate tokens, sessions</li>
+ *   <li>Authorization - check permissions</li>
+ *   <li>Request ID tracking - correlation across logs</li>
+ *   <li>Rate limiting - throttle excessive requests</li>
+ * </ul>
+ *
+ * <p>Execution order:</p>
+ * <pre>
+ * 1. beforeHandle() called before route handler
+ * 2. Route handler executes
+ * 3. afterHandle() called after successful handling
+ * 4. onError() called if exception occurs
+ * </pre>
+ *
+ * <p>Example implementation:</p>
+ * <pre>{@code
+ * public class LoggingInterceptor implements RequestInterceptor {
+ *     @Override
+ *     public void beforeHandle(CefRequest request, Map<String, String> pathVariables) {
+ *         System.out.println("Request: " + request.getMethod() + " " + request.getURL());
+ *     }
+ *
+ *     @Override
+ *     public void afterHandle(ApiResponse<?> response, long durationMs) {
+ *         System.out.println("Response: " + response.getStatusCode() + " (" + durationMs + "ms)");
+ *     }
+ *
+ *     @Override
+ *     public void onError(Exception e, CefRequest request) {
+ *         System.err.println("Error handling " + request.getURL() + ": " + e.getMessage());
+ *     }
+ * }
+ * }</pre>
+ *
+ * <p>Register interceptor in builder:</p>
+ * <pre>{@code
+ * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+ *     .withApiRoutes()
+ *     .withInterceptor(new LoggingInterceptor())
+ *     .withInterceptor(new MetricsInterceptor())
+ *     .build();
+ * }</pre>
+ *
+ * <p><b>Thread Safety:</b> Interceptors must be thread-safe as they may be called
+ * from multiple threads simultaneously.</p>
+ *
+ * @see ApiResponse
+ */
+public interface RequestInterceptor {
+
+    /**
+     * Called before route handler execution.
+     * Can be used for logging, authentication, request modification.
+     *
+     * @param request       CEF request being processed
+     * @param pathVariables extracted path variables from route matching
+     * @throws Exception to abort request processing and return error response
+     */
+    default void beforeHandle(CefRequest request, Map<String, String> pathVariables) throws Exception {
+        // Default: no-op
+    }
+
+    /**
+     * Called after successful route handler execution.
+     * Can be used for logging, metrics, response modification.
+     *
+     * @param response   generated API response
+     * @param durationMs request processing duration in milliseconds
+     */
+    default void afterHandle(ApiResponse<?> response, long durationMs) {
+        // Default: no-op
+    }
+
+    /**
+     * Called when exception occurs during request processing.
+     * Can be used for error logging, metrics, alerting.
+     *
+     * @param exception exception that occurred
+     * @param request   CEF request that caused the exception
+     */
+    default void onError(Exception exception, CefRequest request) {
+        // Default: no-op
+    }
+}

@@ -38,12 +38,14 @@ public final class ApiCefRequestHandler extends CefRequestHandlerAdapter {
     /**
      * Package-private constructor for builder use only.
      *
-     * @param project     IntelliJ project instance
-     * @param routeTree   configured route tree with all registered handlers
-     * @param urlPrefixes allowed URL prefixes for filtering (null = accept all URLs)
+     * @param project          IntelliJ project instance
+     * @param routeTree        configured route tree with all registered handlers
+     * @param urlPrefixes      allowed URL prefixes for filtering (null = accept all URLs)
+     * @param interceptors     request/response interceptors for cross-cutting concerns
+     * @param exceptionHandler exception handler for centralized error handling
      */
-    ApiCefRequestHandler(Project project, RouteTree routeTree, List<String> urlPrefixes) {
-        this.apiHandler = new ApiResourceRequestHandler(project, routeTree);
+    ApiCefRequestHandler(Project project, RouteTree routeTree, List<String> urlPrefixes, List<{{apiPackage}}.interceptor.RequestInterceptor> interceptors, {{apiPackage}}.interceptor.ExceptionHandler exceptionHandler) {
+        this.apiHandler = new ApiResourceRequestHandler(project, routeTree, interceptors, exceptionHandler);
         this.routeTree = routeTree;
         this.urlPrefixes = urlPrefixes;
     }

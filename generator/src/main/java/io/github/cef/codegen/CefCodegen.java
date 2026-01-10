@@ -77,7 +77,11 @@ public class CefCodegen extends AbstractJavaCodegen {
         BAD_REQUEST_EXCEPTION("badRequestException.mustache", "BadRequestException.java"),
         NOT_FOUND_EXCEPTION("notFoundException.mustache", "NotFoundException.java"),
         INTERNAL_SERVER_ERROR_EXCEPTION("internalServerErrorException.mustache", "InternalServerErrorException.java"),
-        NOT_IMPLEMENTED_EXCEPTION("notImplementedException.mustache", "NotImplementedException.java");
+        NOT_IMPLEMENTED_EXCEPTION("notImplementedException.mustache", "NotImplementedException.java"),
+        REQUEST_INTERCEPTOR("requestInterceptor.mustache", "RequestInterceptor.java"),
+        EXCEPTION_HANDLER("exceptionHandler.mustache", "ExceptionHandler.java"),
+        CORS_INTERCEPTOR("corsInterceptor.mustache", "CorsInterceptor.java"),
+        URL_FILTER_INTERCEPTOR("urlFilterInterceptor.mustache", "UrlFilterInterceptor.java");
 
         private final String templateName;
         private final String fileName;
@@ -93,7 +97,8 @@ public class CefCodegen extends AbstractJavaCodegen {
         ROUTING(".routing"),
         CEF(".cef"),
         UTIL(".util"),
-        EXCEPTION(".exception");
+        EXCEPTION(".exception"),
+        INTERCEPTOR(".interceptor");
 
         private final String suffix;
     }
@@ -219,6 +224,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         addCefIntegrationLayer();
         addUtilityLayer();
         addExceptionLayer();
+        addInterceptorLayer();
     }
 
     /**
@@ -307,6 +313,23 @@ public class CefCodegen extends AbstractJavaCodegen {
         supportingFiles.add(new SupportingFile(NOT_FOUND_EXCEPTION.getTemplateName(), folder, NOT_FOUND_EXCEPTION.getFileName()));
         supportingFiles.add(new SupportingFile(INTERNAL_SERVER_ERROR_EXCEPTION.getTemplateName(), folder, INTERNAL_SERVER_ERROR_EXCEPTION.getFileName()));
         supportingFiles.add(new SupportingFile(NOT_IMPLEMENTED_EXCEPTION.getTemplateName(), folder, NOT_IMPLEMENTED_EXCEPTION.getFileName()));
+    }
+
+    /**
+     * Adds interceptor layer supporting files.
+     * <p>
+     * Generates interceptor interface for cross-cutting concerns:
+     * <ul>
+     *   <li>RequestInterceptor - interface for request/response interception (logging, metrics, auth)</li>
+     *   <li>ExceptionHandler - interface for centralized exception handling</li>
+     *   <li>CorsInterceptor - CORS handling implementation</li>
+     * </ul>
+     */
+    private void addInterceptorLayer() {
+        var folder = buildFolderPath(apiPackage + INTERCEPTOR.getSuffix());
+        supportingFiles.add(new SupportingFile(REQUEST_INTERCEPTOR.getTemplateName(), folder, REQUEST_INTERCEPTOR.getFileName()));
+        supportingFiles.add(new SupportingFile(EXCEPTION_HANDLER.getTemplateName(), folder, EXCEPTION_HANDLER.getFileName()));
+        supportingFiles.add(new SupportingFile(CORS_INTERCEPTOR.getTemplateName(), folder, CORS_INTERCEPTOR.getFileName()));
     }
 
     /**

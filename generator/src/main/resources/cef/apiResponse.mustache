@@ -70,6 +70,47 @@ public final class ApiResponse<T> {
     }
 
     /**
+     * Create 201 Created response.
+     *
+     * @param body response body
+     * @param <T>  type of body
+     * @return ApiResponse with 201 status
+     */
+    public static <T> ApiResponse<T> created(T body) {
+        return new ApiResponse<>(body, "application/json", 201, Collections.emptyMap());
+    }
+
+    /**
+     * Create 404 Not Found response.
+     *
+     * @param message error message
+     * @return ApiResponse with 404 status
+     */
+    public static ApiResponse<String> notFound(String message) {
+        return new ApiResponse<>(message, "application/json", 404, Collections.emptyMap());
+    }
+
+    /**
+     * Create 400 Bad Request response.
+     *
+     * @param message error message
+     * @return ApiResponse with 400 status
+     */
+    public static ApiResponse<String> badRequest(String message) {
+        return new ApiResponse<>(message, "application/json", 400, Collections.emptyMap());
+    }
+
+    /**
+     * Create 500 Internal Server Error response.
+     *
+     * @param message error message
+     * @return ApiResponse with 500 status
+     */
+    public static ApiResponse<String> internalServerError(String message) {
+        return new ApiResponse<>(message, "application/json", 500, Collections.emptyMap());
+    }
+
+    /**
      * Set custom content type (builder pattern).
      *
      * @param contentType MIME type

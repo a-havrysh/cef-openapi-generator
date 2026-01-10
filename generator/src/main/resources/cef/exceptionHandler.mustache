@@ -1,0 +1,82 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.protocol.ApiResponse;
+import {{apiPackage}}.exception.ApiException;
+import org.cef.network.CefRequest;
+
+/**
+ * Handler for converting exceptions to HTTP responses.
+ * Provides centralized exception handling across all API endpoints.
+ *
+ * <p>Use cases:</p>
+ * <ul>
+ *   <li>Custom error response format</li>
+ *   <li>Error logging and monitoring</li>
+ *   <li>Different error responses per exception type</li>
+ *   <li>Integration with error tracking services (Sentry, DataDog)</li>
+ * </ul>
+ *
+ * <p>Default implementation converts:</p>
+ * <ul>
+ *   <li>{@link ApiException} → HTTP response with exception's status code</li>
+ *   <li>Other exceptions → 500 Internal Server Error</li>
+ * </ul>
+ *
+ * <p>Example implementation:</p>
+ * <pre>{@code
+ * public class CustomExceptionHandler implements ExceptionHandler {
+ *     @Override
+ *     public ApiResponse<?> handleException(Exception exception, CefRequest request) {
+ *         if (exception instanceof ValidationException) {
+ *             return ApiResponse.badRequest(exception.getMessage());
+ *         }
+ *
+ *         if (exception instanceof ApiException) {
+ *             ApiException apiEx = (ApiException) exception;
+ *             // Log to monitoring service
+ *             logger.error("API error: {} - {}", apiEx.getStatusCode(), apiEx.getMessage());
+ *             return ApiResponse.status(apiEx.getStatusCode(), apiEx.getMessage());
+ *         }
+ *
+ *         // Log unexpected errors
+ *         logger.error("Unexpected error handling " + request.getURL(), exception);
+ *         return ApiResponse.internalServerError("Internal server error");
+ *     }
+ * }
+ * }</pre>
+ *
+ * <p>Register in builder:</p>
+ * <pre>{@code
+ * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+ *     .withApiRoutes()
+ *     .withExceptionHandler(new CustomExceptionHandler())
+ *     .build();
+ * }</pre>
+ *
+ * @see ApiException
+ * @see ApiResponse
+ */
+public interface ExceptionHandler {
+
+    /**
+     * Convert exception to HTTP response.
+     * Called when exception occurs during request processing.
+     *
+     * @param exception exception that occurred
+     * @param request   CEF request that caused the exception
+     * @return HTTP response to send to client
+     */
+    ApiResponse<?> handleException(Exception exception, CefRequest request);
+
+    /**
+     * Default exception handler implementation.
+     * Converts ApiException to appropriate HTTP status, others to 500.
+     */
+    ExceptionHandler DEFAULT = (exception, request) -> {
+        if (exception instanceof ApiException) {
+            ApiException apiException = (ApiException) exception;
+            return ApiResponse.status(apiException.getStatusCode(), apiException.getMessage());
+        }
+        return ApiResponse.internalServerError("Internal server error: " + exception.getMessage());
+    };
+}

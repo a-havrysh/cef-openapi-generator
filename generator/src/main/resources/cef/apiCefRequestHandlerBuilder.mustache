@@ -10,6 +10,7 @@ import {{apiPackage}}.protocol.ApiResponse;
 import {{apiPackage}}.service.{{classname}}Service;
 {{/apis}}
 {{/apiInfo}}
+import {{modelPackage}}.*;
 
 import java.util.function.Function;
 import java.util.List;
@@ -33,6 +34,8 @@ public final class ApiCefRequestHandlerBuilder {
     private final Project project;
     private final RouteTree routeTree = new RouteTree();
     private List<String> urlPrefixes = null; // null = accept all URLs
+    private final List<{{apiPackage}}.interceptor.RequestInterceptor> interceptors = new ArrayList<>();
+    private {{apiPackage}}.interceptor.ExceptionHandler exceptionHandler = {{apiPackage}}.interceptor.ExceptionHandler.DEFAULT;
 
     private ApiCefRequestHandlerBuilder(Project project) {
         this.project = project;
@@ -61,12 +64,34 @@ public final class ApiCefRequestHandlerBuilder {
 {{#operation}}
         routeTree.addRoute("{{path}}", HttpMethod.{{httpMethod}}, request -> {
             {{classname}}Service service = project.getService({{classname}}Service.class);
-            return service.handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}(request);
+            return service.handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{#isPathParam}}request.getPathVariable("{{baseName}}"){{/isPathParam}}{{#isQueryParam}}{{#isInteger}}request.getQueryParam("{{baseName}}") != null ? Integer.parseInt(request.getQueryParam("{{baseName}}")) : null{{/isInteger}}{{#isLong}}request.getQueryParam("{{baseName}}") != null ? Long.parseLong(request.getQueryParam("{{baseName}}")) : null{{/isLong}}{{^isInteger}}{{^isLong}}request.getQueryParam("{{baseName}}"){{/isLong}}{{/isInteger}}{{/isQueryParam}}{{#isBodyParam}}request.getBody({{dataType}}.class){{/isBodyParam}}, {{/allParams}}request.getCefBrowser(), request.getCefFrame(), request.getCefRequest());
         });
 {{/operation}}
 {{/operations}}
 {{/apis}}
 {{/apiInfo}}
+        return this;
+    }
+
+    /**
+     * Add custom route with path pattern (e.g., "/api/users/{id}").
+     * Supports path variables that will be extracted during matching.
+     *
+     * @param pattern URL pattern with optional path variables (e.g., "/api/users/{id}")
+     * @param method  HTTP method to match (GET, POST, etc.)
+     * @param handler function to process matching requests
+     * @return this builder for chaining
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withRoute("/api/users/{id}", HttpMethod.GET, userHandler)
+     *     .withRoute("/api/posts/{postId}/comments/{commentId}", HttpMethod.GET, commentHandler)
+     *     .build();
+     * }</pre>
+     */
+    public ApiCefRequestHandlerBuilder withRoute(String pattern, HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+        routeTree.addRoute(pattern, method, handler);
         return this;
     }
 
@@ -212,12 +237,116 @@ public final class ApiCefRequestHandlerBuilder {
     }
 
     /**
+     * Enable CORS for all origins.
+     * Adds CorsInterceptor with wildcard (*) origin support.
+     * Automatically handles OPTIONS preflight requests.
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withApiRoutes()
+     *     .withCors()
+     *     .build();
+     * }</pre>
+     *
+     * @return this builder for chaining
+     */
+    public ApiCefRequestHandlerBuilder withCors() {
+        this.interceptors.add(new {{apiPackage}}.interceptor.CorsInterceptor(new ArrayList<>()));
+        return this;
+    }
+
+    /**
+     * Enable CORS for specific origins.
+     * Adds CorsInterceptor with origin whitelist.
+     * Only requests from specified origins will be allowed.
+     * Automatically handles OPTIONS preflight requests.
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withApiRoutes()
+     *     .withCors("http://localhost:3000", "https://example.com")
+     *     .build();
+     * }</pre>
+     *
+     * @param origins allowed origin URLs (e.g., "http://localhost:3000")
+     * @return this builder for chaining
+     */
+    public ApiCefRequestHandlerBuilder withCors(String... origins) {
+        List<String> originList = origins == null || origins.length == 0
+            ? new ArrayList<>()
+            : new ArrayList<>(List.of(origins));
+        this.interceptors.add(new {{apiPackage}}.interceptor.CorsInterceptor(originList));
+        return this;
+    }
+
+    /**
+     * Add request/response interceptor for cross-cutting concerns.
+     * Interceptors are executed in registration order.
+     *
+     * <p>Common use cases:</p>
+     * <ul>
+     *   <li>Logging - log all requests and responses</li>
+     *   <li>Metrics - track request count, duration, errors</li>
+     *   <li>Authentication - validate tokens before handling</li>
+     *   <li>Request ID tracking - correlation across logs</li>
+     * </ul>
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withApiRoutes()
+     *     .withInterceptor(new LoggingInterceptor())
+     *     .withInterceptor(new MetricsInterceptor())
+     *     .build();
+     * }</pre>
+     *
+     * @param interceptor request interceptor implementation
+     * @return this builder for chaining
+     */
+    public ApiCefRequestHandlerBuilder withInterceptor({{apiPackage}}.interceptor.RequestInterceptor interceptor) {
+        if (interceptor != null) {
+            this.interceptors.add(interceptor);
+        }
+        return this;
+    }
+
+    /**
+     * Set custom exception handler for centralized error handling.
+     * Default handler converts ApiException to appropriate HTTP status, others to 500.
+     *
+     * <p>Example:</p>
+     * <pre>{@code
+     * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+     *     .withApiRoutes()
+     *     .withExceptionHandler((ex, req) -> {
+     *         logger.error("Error handling " + req.getURL(), ex);
+     *         if (ex instanceof ValidationException) {
+     *             return ApiResponse.badRequest(ex.getMessage());
+     *         }
+     *         return ApiResponse.internalServerError("Server error");
+     *     })
+     *     .build();
+     * }</pre>
+     *
+     * @param exceptionHandler custom exception handler
+     * @return this builder for chaining
+     */
+    public ApiCefRequestHandlerBuilder withExceptionHandler({{apiPackage}}.interceptor.ExceptionHandler exceptionHandler) {
+        if (exceptionHandler != null) {
+            this.exceptionHandler = exceptionHandler;
+        }
+        return this;
+    }
+
+    /**
      * Build ApiCefRequestHandler with all configured routes.
      * Creates the final request handler ready for use with CEF browser.
      *
      * @return configured ApiCefRequestHandler instance
      */
     public ApiCefRequestHandler build() {
-        return new ApiCefRequestHandler(project, routeTree, urlPrefixes);
+        return new ApiCefRequestHandler(project, routeTree, urlPrefixes, interceptors, exceptionHandler);
     }
 }
