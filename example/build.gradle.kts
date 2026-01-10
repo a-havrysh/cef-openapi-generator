@@ -5,7 +5,7 @@ buildscript {
     }
     dependencies {
         classpath("org.openapitools:openapi-generator-gradle-plugin:7.18.0")
-        classpath("io.github.cef:generator:1.0.3")
+        classpath("io.github.cef:generator:1.1.0")
     }
 }
 
