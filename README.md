@@ -6,13 +6,14 @@ OpenAPI Code Generator for Chromium Embedded Framework (CEF) with JetBrains Plat
 
 - **RouteTree Routing**: Trie-based routing, 2.6x faster than regex
 - **Type-Safe Parameters**: Query params, path variables, body automatically extracted and typed
+- **OpenAPI Validation**: Automatic parameter validation against OpenAPI constraints (minLength, maxLength, minimum, maximum, pattern, enum)
 - **ApiResponse<T>**: Generic response wrapper (like Spring ResponseEntity)
 - **Builder Pattern**: Fluent API for custom routes and configuration
-- **Request/Response Interceptors**: Logging, metrics, authentication support
+- **Request/Response Interceptors**: Logging, metrics, authentication, validation support
 - **Exception Handler**: Centralized error handling with custom error responses
 - **CORS Support**: Cross-origin resource sharing with origin whitelisting
 - **Enum Custom Fields**: Auto-detect types (Integer, String, Boolean, etc.) from YAML values
-- **Zero Dependencies**: No Lombok, Swagger, or Spring (only Jackson for JSON)
+- **Zero Dependencies**: No Lombok, Swagger, Jakarta Validation, or Spring (only Jackson for JSON)
 - **Java 17+ Compatible**: Modern Java with records, switch expressions
 - **Extensible**: Add prefix/exact/contains/pattern routes alongside API routes
 - **Direct CEF Access**: CefBrowser, CefFrame, CefRequest in wrapper methods
@@ -54,7 +55,7 @@ To create a GitHub Personal Access Token:
 ```gradle
 buildscript {
     dependencies {
-        classpath("io.github.cef:generator:1.0.6")
+        classpath("io.github.cef:generator:2.0.0")
     }
 }
 
@@ -76,7 +77,7 @@ buildscript {
         mavenLocal()
     }
     dependencies {
-        classpath("io.github.cef:generator:1.0.6")
+        classpath("io.github.cef:generator:2.0.0")
     }
 }
 ```
@@ -92,6 +93,13 @@ val generateApi by tasks.registering(org.openapitools.generator.gradle.plugin.ta
 
     modelPackage.set("com.example.api.dto")
     apiPackage.set("com.example.api")
+
+    // Optional: Model naming configuration
+    configOptions.set(mapOf(
+        "hideGenerationTimestamp" to "true",
+        "modelSuffix" to "Dto"     // Append Dto to all models (Task -> TaskDto)
+        // "modelPrefix" to "Api"  // Prepend prefix to all models (Task -> ApiTask)
+    ))
 
     // Disable unnecessary generation
     generateApiTests.set(false)
@@ -210,6 +218,74 @@ CORS features:
 - Empty list = allow all origins (`*`)
 - Specific origins = whitelist mode with credentials support
 
+**OpenAPI Parameter Validation:**
+
+Automatically validate request parameters against OpenAPI constraints (v2.0+):
+
+```java
+// Enable validation (recommended for production)
+var handler = ApiCefRequestHandler.builder(project)
+    .withApiRoutes()
+    .withValidation()
+    .build();
+```
+
+Supported constraints from OpenAPI specification:
+- **required**: Parameter must be present
+- **minLength** / **maxLength**: String length bounds
+- **minimum** / **maximum**: Numeric value bounds
+- **pattern**: Regex pattern matching
+- **enum**: Allowed values list
+
+Example OpenAPI specification with constraints:
+
+```yaml
+/api/tasks:
+  get:
+    parameters:
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [pending, in_progress, completed]
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1000
+```
+
+When validation fails, `ValidationException` is thrown (HTTP 400) with detailed error information:
+
+```json
+{
+  "statusCode": 400,
+  "message": "Validation failed with 2 error(s)",
+  "errors": [
+    {
+      "parameter": "page",
+      "value": "0",
+      "constraint": "minimum",
+      "message": "page must be at least 1 (got 0)"
+    },
+    {
+      "parameter": "status",
+      "value": "invalid",
+      "constraint": "enum",
+      "message": "status must be one of: pending, in_progress, completed"
+    }
+  ]
+}
+```
+
+Validation features:
+- Validates before service layer - early error detection
+- Collects all errors in single response - better UX
+- Thread-safe regex pattern caching - high performance
+- No external dependencies - pure Java validation
+- Automatically generated from OpenAPI spec - no manual code
+
 **Request/Response Interceptors:**
 
 Add cross-cutting concerns (logging, metrics, authentication):
@@ -218,8 +294,9 @@ Add cross-cutting concerns (logging, metrics, authentication):
 // Logging interceptor
 public class LoggingInterceptor implements RequestInterceptor {
     @Override
-    public void beforeHandle(CefRequest request, Map<String, String> pathVariables) {
-        System.out.println("→ " + request.getMethod() + " " + request.getURL());
+    public void beforeHandle(ApiRequest request) {  // v2.0: simplified signature
+        System.out.println("→ " + request.getMethod() + " " + request.getPath());
+        String userId = request.getPathVariable("userId");  // Access path variables from request
     }
 
     @Override
@@ -228,7 +305,7 @@ public class LoggingInterceptor implements RequestInterceptor {
     }
 
     @Override
-    public void onError(Exception e, CefRequest request) {
+    public void onError(Exception e, ApiRequest request) {  // v2.0: ApiRequest instead of CefRequest
         System.err.println("✗ Error: " + e.getMessage());
     }
 }
@@ -236,8 +313,8 @@ public class LoggingInterceptor implements RequestInterceptor {
 // Authentication interceptor
 public class AuthInterceptor implements RequestInterceptor {
     @Override
-    public void beforeHandle(CefRequest request, Map<String, String> pathVars) throws Exception {
-        String token = request.getHeaderByName("Authorization");
+    public void beforeHandle(ApiRequest request) throws Exception {  // v2.0: no pathVars parameter
+        String token = request.getHeader("Authorization");  // v2.0: getHeader instead of getHeaderByName
         if (token == null || !isValidToken(token)) {
             throw new ApiException(401, "Unauthorized");
         }
@@ -260,24 +337,54 @@ Interceptor execution order:
 
 **Exception Handler:**
 
-Centralized exception handling for custom error responses:
+Centralized exception handling for custom error responses.
+
+**Option 1: Type-Specific Handlers (v2.0+, recommended):**
+
+```java
+var handler = ApiCefRequestHandler.builder(project)
+    .withApiRoutes()
+    .withExceptionHandler(ValidationException.class, (ex, req) -> {
+        // Custom handling for validation errors
+        ErrorResponse err = new ErrorResponse();
+        err.setError("Validation");
+        err.setMessage(ex.getMessage());
+        err.setDetails(ex.getErrors());  // Include validation error list
+        return ApiResponse.badRequest(err);
+    })
+    .withExceptionHandler(ApiException.class, (ex, req) -> {
+        // Custom handling for API exceptions
+        logger.warn("API error: {}", ex.getMessage());
+        return ApiResponse.status(ex.getStatusCode(), ex.getMessage());
+    })
+    .withExceptionHandler(Exception.class, (ex, req) -> {
+        // Fallback for unexpected errors
+        logger.error("Unexpected error", ex);
+        return ApiResponse.internalServerError("Internal server error");
+    })
+    .build();
+```
+
+Features:
+- Chain of Responsibility - handlers checked in registration order
+- Type-safe with generics
+- First matching handler processes the exception
+- Clean separation of error handling logic
+
+**Option 2: Single Handler:**
 
 ```java
 var handler = ApiCefRequestHandler.builder(project)
     .withApiRoutes()
     .withExceptionHandler((exception, request) -> {
-        // Log to monitoring service
-        logger.error("Error handling " + request.getURL(), exception);
-
+        // Manual instanceof checks
         if (exception instanceof ValidationException) {
             return ApiResponse.badRequest(exception.getMessage());
         }
-
         if (exception instanceof ApiException) {
             ApiException apiEx = (ApiException) exception;
             return ApiResponse.status(apiEx.getStatusCode(), apiEx.getMessage());
         }
-
         return ApiResponse.internalServerError("Internal server error");
     })
     .build();
@@ -435,12 +542,16 @@ api/
 ├── interceptor/
 │   ├── RequestInterceptor.java (logging, metrics, auth)
 │   ├── ExceptionHandler.java (centralized error handling)
+│   ├── CompositeExceptionHandler.java (type-specific handlers)
+│   ├── ValidationInterceptor.java (OpenAPI validation)
 │   ├── CorsInterceptor.java (CORS implementation)
 │   └── UrlFilterInterceptor.java (URL filtering)
+├── validation/
+│   └── ParameterValidator.java (OpenAPI constraint validation)
 ├── service/
 │   └── *Service.java (two-level with typed params)
 ├── dto/
-│   └── *.java (with builders)
+│   └── *.java (with @JsonProperty, builders)
 ├── util/
 │   └── ContentTypeResolver.java (18+ MIME types)
 └── exception/
@@ -448,6 +559,7 @@ api/
     ├── BadRequestException.java (400)
     ├── NotFoundException.java (404)
     ├── InternalServerErrorException.java (500)
+    ├── ValidationException.java (400, with error list)
     └── NotImplementedException.java (501)
 ```
 

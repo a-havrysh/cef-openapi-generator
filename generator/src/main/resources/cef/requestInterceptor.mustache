@@ -1,7 +1,7 @@
 package {{apiPackage}}.interceptor;
 
+import {{apiPackage}}.protocol.ApiRequest;
 import {{apiPackage}}.protocol.ApiResponse;
-import org.cef.network.CefRequest;
 
 import java.util.Map;
 
@@ -31,8 +31,9 @@ import java.util.Map;
  * <pre>{@code
  * public class LoggingInterceptor implements RequestInterceptor {
  *     @Override
- *     public void beforeHandle(CefRequest request, Map<String, String> pathVariables) {
- *         System.out.println("Request: " + request.getMethod() + " " + request.getURL());
+ *     public void beforeHandle(ApiRequest request) {
+ *         System.out.println("Request: " + request.getMethod() + " " + request.getPath());
+ *         String userId = request.getPathVariable("userId");  // Access path variables from request
  *     }
  *
  *     @Override
@@ -41,8 +42,8 @@ import java.util.Map;
  *     }
  *
  *     @Override
- *     public void onError(Exception e, CefRequest request) {
- *         System.err.println("Error handling " + request.getURL() + ": " + e.getMessage());
+ *     public void onError(Exception e, ApiRequest request) {
+ *         System.err.println("Error handling " + request.getPath() + ": " + e.getMessage());
  *     }
  * }
  * }</pre>
@@ -65,13 +66,16 @@ public interface RequestInterceptor {
 
     /**
      * Called before route handler execution.
-     * Can be used for logging, authentication, request modification.
+     * Can be used for logging, authentication, request modification, validation.
      *
-     * @param request       CEF request being processed
-     * @param pathVariables extracted path variables from route matching
+     * <p><b>Breaking Change (v2.0.0):</b> Changed from CefRequest to ApiRequest to provide
+     * better access to query parameters, headers, and request body. Removed pathVariables
+     * parameter - use request.getPathVariable(name) instead.
+     *
+     * @param request API request being processed (with access to query params, headers, body, path variables)
      * @throws Exception to abort request processing and return error response
      */
-    default void beforeHandle(CefRequest request, Map<String, String> pathVariables) throws Exception {
+    default void beforeHandle(ApiRequest request) throws Exception {
         // Default: no-op
     }
 
@@ -90,10 +94,12 @@ public interface RequestInterceptor {
      * Called when exception occurs during request processing.
      * Can be used for error logging, metrics, alerting.
      *
+     * <p><b>Breaking Change (v2.0.0):</b> Changed from CefRequest to ApiRequest.
+     *
      * @param exception exception that occurred
-     * @param request   CEF request that caused the exception
+     * @param request   API request that caused the exception
      */
-    default void onError(Exception exception, CefRequest request) {
+    default void onError(Exception exception, ApiRequest request) {
         // Default: no-op
     }
 }

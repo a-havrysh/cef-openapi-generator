@@ -86,13 +86,7 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
 
             // Call beforeHandle interceptors
             for ({{apiPackage}}.interceptor.RequestInterceptor interceptor : interceptors) {
-                try {
-                    interceptor.beforeHandle(cefRequest, match.pathVariables());
-                } catch (Exception e) {
-                    // Interceptor can abort request - handle via exception handler
-                    ApiResponse<?> errorResponse = exceptionHandler.handleException(e, cefRequest);
-                    return ApiResponseHandler.from(errorResponse);
-                }
+                interceptor.beforeHandle(request);
             }
 
             // Execute handler
@@ -114,7 +108,7 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
             // Call onError interceptors
             for ({{apiPackage}}.interceptor.RequestInterceptor interceptor : interceptors) {
                 try {
-                    interceptor.onError(e, cefRequest);
+                    interceptor.onError(e, request);
                 } catch (Exception ex) {
                     System.err.println("Interceptor onError failed: " + ex.getMessage());
                 }

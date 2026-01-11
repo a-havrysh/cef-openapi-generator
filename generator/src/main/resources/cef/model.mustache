@@ -1,6 +1,6 @@
 package {{package}};
 
-import java.util.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 {{#imports}}
 import {{import}};
 {{/imports}}
@@ -42,6 +42,8 @@ public enum {{classname}} {
 {{^isEnum}}
 public final class {{classname}} {
 {{#vars}}
+
+    @JsonProperty("{{baseName}}")
     private {{{dataType}}} {{name}};
 {{/vars}}
 

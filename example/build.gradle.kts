@@ -5,7 +5,7 @@ buildscript {
     }
     dependencies {
         classpath("org.openapitools:openapi-generator-gradle-plugin:7.18.0")
-        classpath("io.github.cef:generator:1.1.0")
+        classpath("io.github.cef:generator:2.0.0")
     }
 }
 
@@ -57,6 +57,7 @@ val generateApi by tasks.registering(org.openapitools.generator.gradle.plugin.ta
 
     configOptions.set(mapOf(
         "hideGenerationTimestamp" to "true"
+        // Optional: add "modelSuffix" to "Dto" to append Dto to all model names (Task -> TaskDto)
     ))
 }
 

@@ -414,6 +414,223 @@ If migration issues occur:
 
 ---
 
+## Migrating from 1.x to 2.0.0
+
+Version 2.0.0 introduces OpenAPI parameter validation, type-specific exception handling, and API improvements with breaking changes.
+
+### Breaking Changes
+
+#### 1. RequestInterceptor Interface Changes
+
+**beforeHandle() and onError() signatures changed:**
+
+**Before (v1.x):**
+```java
+public class MyInterceptor implements RequestInterceptor {
+    @Override
+    public void beforeHandle(CefRequest request, Map<String, String> pathVariables) {
+        String url = request.getURL();
+        String userId = pathVariables.get("userId");
+    }
+
+    @Override
+    public void onError(Exception e, CefRequest request) {
+        System.err.println("Error: " + e.getMessage());
+    }
+}
+```
+
+**After (v2.0.0):**
+```java
+public class MyInterceptor implements RequestInterceptor {
+    @Override
+    public void beforeHandle(ApiRequest request) {  // Simplified signature
+        String url = request.getPath();
+        String userId = request.getPathVariable("userId");  // Access from request
+        String queryParam = request.getQueryParam("name");   // Better access
+    }
+
+    @Override
+    public void onError(Exception e, ApiRequest request) {  // ApiRequest instead of CefRequest
+        System.err.println("Error: " + e.getMessage());
+    }
+}
+```
+
+**Changes:**
+- `CefRequest` → `ApiRequest` (better access to query params, headers, body, path variables)
+- Removed `pathVariables` parameter from `beforeHandle()` - use `request.getPathVariable(name)` instead
+- `onError()` also uses `ApiRequest`
+
+**Benefits:**
+- Cleaner API - one source for all request data
+- Better access to query params and body in interceptors
+- No redundant pathVariables parameter
+
+#### 2. Exception Classes No Longer Final
+
+**Before (v1.x):**
+```java
+public final class BadRequestException extends ApiException { }
+public final class NotFoundException extends ApiException { }
+public final class InternalServerErrorException extends ApiException { }
+```
+
+**After (v2.0.0):**
+```java
+public class BadRequestException extends ApiException { }  // Can extend
+public class NotFoundException extends ApiException { }     // Can extend
+public class InternalServerErrorException extends ApiException { }  // Can extend
+```
+
+**Impact:** Can now create custom exception types (e.g., ValidationException extends BadRequestException).
+
+**No action required** - backward compatible change.
+
+#### 3. Exception Handling Behavior
+
+**beforeHandle() exceptions now trigger onError() callbacks:**
+
+**Before (v1.x):**
+- beforeHandle exception → immediately handled, onError NOT called
+
+**After (v2.0.0):**
+- beforeHandle exception → onError called for all interceptors → ExceptionHandler processes
+
+**Impact:** onError() now called for ALL exceptions (beforeHandle, handler, afterHandle).
+
+**Action:** If your interceptor relies on onError() NOT being called for beforeHandle exceptions, update logic.
+
+### New Features (Optional)
+
+#### OpenAPI Parameter Validation
+
+Enable automatic validation:
+
+```java
+ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+    .withApiRoutes()
+    .withValidation()  // NEW: Enable OpenAPI validation
+    .build();
+```
+
+Add constraints to openapi.yaml:
+```yaml
+parameters:
+  - name: page
+    in: query
+    schema:
+      type: integer
+      minimum: 1
+      maximum: 1000
+```
+
+#### Type-Specific Exception Handlers
+
+Register different handlers for different exception types:
+
+```java
+ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+    .withApiRoutes()
+    .withExceptionHandler(ValidationException.class, (ex, req) -> {
+        ErrorResponse err = new ErrorResponse();
+        err.setError("Validation");
+        err.setDetails(ex.getErrors());
+        return ApiResponse.badRequest(err);
+    })
+    .withExceptionHandler(ApiException.class, (ex, req) -> {
+        return ApiResponse.status(ex.getStatusCode(), ex.getMessage());
+    })
+    .withExceptionHandler(Exception.class, (ex, req) -> {
+        logger.error("Unexpected error", ex);
+        return ApiResponse.internalServerError("Server error");
+    })
+    .build();
+```
+
+#### Jackson @JsonProperty Annotations
+
+DTO fields now annotated for proper JSON mapping:
+
+```java
+public final class NotifyRequest {
+    @JsonProperty("user-id")    // Original OpenAPI name
+    private String userId;       // Java-safe field name
+}
+```
+
+Handles special characters in field names automatically.
+
+#### Model Naming Options
+
+Add suffix or prefix to all model names:
+
+```gradle
+configOptions.set(mapOf(
+    "modelSuffix" to "Dto"  // Task → TaskDto
+))
+```
+
+### Migration Steps
+
+#### Step 1: Update Dependency
+
+```kotlin
+buildscript {
+    dependencies {
+        classpath("io.github.cef:generator:2.0.0")  // Update to 2.0.0
+    }
+}
+```
+
+#### Step 2: Regenerate Code
+
+```bash
+./gradlew clean generateApi
+```
+
+This regenerates with new signatures and validation support.
+
+#### Step 3: Update Custom Interceptors
+
+If you have custom interceptors, update signatures:
+
+```java
+// Update method signature
+public void beforeHandle(ApiRequest request) {  // Remove pathVariables param
+    String id = request.getPathVariable("userId");  // Access from request
+}
+
+public void onError(Exception e, ApiRequest request) {  // CefRequest → ApiRequest
+    String path = request.getPath();  // Use ApiRequest methods
+}
+```
+
+#### Step 4: Test
+
+```bash
+./gradlew compileJava test
+```
+
+### Rollback Plan
+
+If migration issues occur:
+
+1. **Revert to 1.1.0:**
+   ```kotlin
+   classpath("io.github.cef:generator:1.1.0")
+   ```
+
+2. **Regenerate:**
+   ```bash
+   ./gradlew clean generateApi
+   ```
+
+3. **Report issue:**
+   https://github.com/a-havrysh/cef-openapi-generator/issues
+
+---
+
 ## Future Migrations
 
 This section will be updated with guides for future version migrations.

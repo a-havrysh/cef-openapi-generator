@@ -1,0 +1,230 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.validation.ParameterValidator;
+import {{apiPackage}}.exception.ValidationException;
+import {{apiPackage}}.exception.ValidationException.ValidationError;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Automatically generated interceptor that validates request parameters
+ * against OpenAPI specification constraints.
+ *
+ * <p>This interceptor is automatically registered by the API handler builder
+ * and validates all incoming requests before they reach the service layer.
+ *
+ * <p>Validates:</p>
+ * <ul>
+ *   <li>Path parameters - extracted from URL patterns</li>
+ *   <li>Query parameters - extracted from query string</li>
+ *   <li>Header parameters - extracted from request headers</li>
+ * </ul>
+ *
+ * <p>Constraints checked:</p>
+ * <ul>
+ *   <li>required - parameter must be present</li>
+ *   <li>minLength/maxLength - string length bounds</li>
+ *   <li>minimum/maximum - numeric value bounds</li>
+ *   <li>pattern - regex pattern matching</li>
+ *   <li>enum - allowed values list</li>
+ * </ul>
+ *
+ * <p>If validation fails, throws {@link ValidationException} which is converted
+ * to HTTP 400 Bad Request with detailed error information.</p>
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see ParameterValidator
+ * @see ValidationException
+ * @see RequestInterceptor
+ */
+public final class ValidationInterceptor implements RequestInterceptor {
+
+    // Validation metadata indexed by: "METHOD:path"
+    private final Map<String, RouteValidation> validationMetadata;
+
+    /**
+     * Constructs ValidationInterceptor and initializes validation metadata
+     * from OpenAPI specification.
+     */
+    public ValidationInterceptor() {
+        this.validationMetadata = new HashMap<>();
+        initializeValidationMetadata();
+    }
+
+    @Override
+    public void beforeHandle(ApiRequest request) throws Exception {
+        String routeKey = request.getMethod().name() + ":" + request.getPath();
+        RouteValidation validation = validationMetadata.get(routeKey);
+
+        if (validation == null) {
+            return; // No validation metadata for this route
+        }
+
+        List<ValidationError> errors = new ArrayList<>();
+
+        // Validate path parameters
+        for (ParameterValidation paramValidation : validation.pathParams) {
+            String value = request.getPathVariable(paramValidation.name);
+            errors.addAll(validateParameter(paramValidation, value));
+        }
+
+        // Validate query parameters
+        for (ParameterValidation paramValidation : validation.queryParams) {
+            String value = request.getQueryParam(paramValidation.name);
+            errors.addAll(validateParameter(paramValidation, value));
+        }
+
+        // Validate header parameters
+        for (ParameterValidation paramValidation : validation.headerParams) {
+            String value = request.getHeader(paramValidation.name);
+            errors.addAll(validateParameter(paramValidation, value));
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException(errors);
+        }
+    }
+
+    /**
+     * Validates a single parameter against its constraints.
+     *
+     * @param param parameter validation metadata
+     * @param value parameter value as string
+     * @return list of validation errors (empty if valid)
+     */
+    private List<ValidationError> validateParameter(ParameterValidation param, String value) {
+        switch (param.type) {
+            case STRING:
+                return ParameterValidator.validateString(
+                    param.name, value, param.required,
+                    param.minLength, param.maxLength, param.pattern, param.enumValues
+                );
+            case INTEGER:
+                return ParameterValidator.validateAndParseInteger(
+                    param.name, value, param.required,
+                    param.minimum != null ? param.minimum.intValue() : null,
+                    param.maximum != null ? param.maximum.intValue() : null
+                );
+            case NUMBER:
+                return ParameterValidator.validateAndParseNumber(
+                    param.name, value, param.required,
+                    param.minimum, param.maximum
+                );
+            default:
+                return List.of();
+        }
+    }
+
+    /**
+     * Initializes validation metadata from OpenAPI specification.
+     * This method is auto-generated based on the operations defined in openapi.yaml.
+     */
+    private void initializeValidationMetadata() {
+        {{#apiInfo}}
+        {{#apis}}
+        {{#operations}}
+        {{#operation}}
+        {{#hasParams}}
+        {{#allParams}}
+        {{#vendorExtensions.x-has-validation}}
+        {{#-first}}
+        initValidation_{{operationId}}();
+        {{/-first}}
+        {{/vendorExtensions.x-has-validation}}
+        {{/allParams}}
+        {{/hasParams}}
+        {{/operation}}
+        {{/operations}}
+        {{/apis}}
+        {{/apiInfo}}
+    }
+{{#apiInfo}}
+{{#apis}}
+{{#operations}}
+{{#operation}}
+{{#allParams}}
+{{#vendorExtensions.x-has-validation}}
+{{#-first}}
+
+    private void initValidation_{{operationId}}() {
+        RouteValidation validation = new RouteValidation();
+{{/-first}}
+        validation.{{#isPathParam}}pathParams{{/isPathParam}}{{#isQueryParam}}queryParams{{/isQueryParam}}{{#isHeaderParam}}headerParams{{/isHeaderParam}}.add(
+            new ParameterValidation(
+                "{{baseName}}",
+                ParameterType.{{#isString}}STRING{{/isString}}{{#isInteger}}INTEGER{{/isInteger}}{{#isLong}}INTEGER{{/isLong}}{{#isNumber}}NUMBER{{/isNumber}},
+                {{required}},
+                {{#vendorExtensions.x-min-length}}{{.}}{{/vendorExtensions.x-min-length}}{{^vendorExtensions.x-min-length}}null{{/vendorExtensions.x-min-length}},
+                {{#vendorExtensions.x-max-length}}{{.}}{{/vendorExtensions.x-max-length}}{{^vendorExtensions.x-max-length}}null{{/vendorExtensions.x-max-length}},
+                {{#vendorExtensions.x-pattern}}"{{.}}"{{/vendorExtensions.x-pattern}}{{^vendorExtensions.x-pattern}}null{{/vendorExtensions.x-pattern}},
+                {{#vendorExtensions.x-minimum}}new Double({{.}}){{/vendorExtensions.x-minimum}}{{^vendorExtensions.x-minimum}}null{{/vendorExtensions.x-minimum}},
+                {{#vendorExtensions.x-maximum}}new Double({{.}}){{/vendorExtensions.x-maximum}}{{^vendorExtensions.x-maximum}}null{{/vendorExtensions.x-maximum}},
+                {{#vendorExtensions.x-has-enum-values}}List.of({{{vendorExtensions.x-enum-values-string}}}){{/vendorExtensions.x-has-enum-values}}{{^vendorExtensions.x-has-enum-values}}null{{/vendorExtensions.x-has-enum-values}}
+            )
+        );
+{{/vendorExtensions.x-has-validation}}
+{{/allParams}}
+{{#allParams}}
+{{#vendorExtensions.x-has-validation}}
+{{#-first}}
+        validationMetadata.put("{{httpMethod}}:{{path}}", validation);
+    }
+{{/-first}}
+{{/vendorExtensions.x-has-validation}}
+{{/allParams}}
+{{/operation}}
+{{/operations}}
+{{/apis}}
+{{/apiInfo}}
+
+    // Inner classes for validation metadata
+
+    /**
+     * Holds validation metadata for a single route.
+     */
+    private static class RouteValidation {
+        final List<ParameterValidation> pathParams = new ArrayList<>();
+        final List<ParameterValidation> queryParams = new ArrayList<>();
+        final List<ParameterValidation> headerParams = new ArrayList<>();
+    }
+
+    /**
+     * Holds validation constraints for a single parameter.
+     */
+    private static class ParameterValidation {
+        final String name;
+        final ParameterType type;
+        final boolean required;
+        final Integer minLength;
+        final Integer maxLength;
+        final String pattern;
+        final Number minimum;
+        final Number maximum;
+        final List<String> enumValues;
+
+        ParameterValidation(String name, ParameterType type, boolean required,
+                          Integer minLength, Integer maxLength, String pattern,
+                          Number minimum, Number maximum, List<String> enumValues) {
+            this.name = name;
+            this.type = type;
+            this.required = required;
+            this.minLength = minLength;
+            this.maxLength = maxLength;
+            this.pattern = pattern;
+            this.minimum = minimum;
+            this.maximum = maximum;
+            this.enumValues = enumValues;
+        }
+    }
+
+    /**
+     * Parameter types for type-specific validation.
+     */
+    private enum ParameterType {
+        STRING, INTEGER, NUMBER
+    }
+}

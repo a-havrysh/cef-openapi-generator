@@ -1,9 +1,12 @@
 package io.github.cef.codegen;
 
+import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.servers.Server;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.openapitools.codegen.CodegenModel;
+import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenProperty;
 import org.openapitools.codegen.SupportingFile;
 import org.openapitools.codegen.languages.AbstractJavaCodegen;
@@ -18,6 +21,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import static io.github.cef.codegen.CefCodegen.FileSpec.*;
 import static io.github.cef.codegen.CefCodegen.PackageSuffix.*;
 import static io.github.cef.codegen.CefCodegen.ImportFilter.*;
@@ -78,9 +82,13 @@ public class CefCodegen extends AbstractJavaCodegen {
         NOT_FOUND_EXCEPTION("notFoundException.mustache", "NotFoundException.java"),
         INTERNAL_SERVER_ERROR_EXCEPTION("internalServerErrorException.mustache", "InternalServerErrorException.java"),
         NOT_IMPLEMENTED_EXCEPTION("notImplementedException.mustache", "NotImplementedException.java"),
+        VALIDATION_EXCEPTION("validationException.mustache", "ValidationException.java"),
+        PARAMETER_VALIDATOR("parameterValidator.mustache", "ParameterValidator.java"),
         REQUEST_INTERCEPTOR("requestInterceptor.mustache", "RequestInterceptor.java"),
         EXCEPTION_HANDLER("exceptionHandler.mustache", "ExceptionHandler.java"),
+        COMPOSITE_EXCEPTION_HANDLER("compositeExceptionHandler.mustache", "CompositeExceptionHandler.java"),
         CORS_INTERCEPTOR("corsInterceptor.mustache", "CorsInterceptor.java"),
+        VALIDATION_INTERCEPTOR("validationInterceptor.mustache", "ValidationInterceptor.java"),
         URL_FILTER_INTERCEPTOR("urlFilterInterceptor.mustache", "UrlFilterInterceptor.java");
 
         private final String templateName;
@@ -98,6 +106,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         CEF(".cef"),
         UTIL(".util"),
         EXCEPTION(".exception"),
+        VALIDATION(".validation"),
         INTERCEPTOR(".interceptor");
 
         private final String suffix;
@@ -179,6 +188,12 @@ public class CefCodegen extends AbstractJavaCodegen {
         this.setAnnotationLibrary(AnnotationLibrary.SWAGGER2);
         this.setOpenApiNullable(false);
         this.setUseBeanValidation(false);
+
+        // Add CLI options
+        cliOptions.add(org.openapitools.codegen.CliOption.newString("modelSuffix",
+            "Suffix to append to all model class names (e.g., 'Dto' -> TaskDto)"));
+        cliOptions.add(org.openapitools.codegen.CliOption.newString("modelPrefix",
+            "Prefix to prepend to all model class names"));
     }
 
     /**
@@ -216,6 +231,16 @@ public class CefCodegen extends AbstractJavaCodegen {
     public void processOpts() {
         super.processOpts();
 
+        // Process model naming options
+        if (additionalProperties.containsKey("modelSuffix")) {
+            String suffix = additionalProperties.get("modelSuffix").toString();
+            this.setModelNameSuffix(suffix);
+        }
+        if (additionalProperties.containsKey("modelPrefix")) {
+            String prefix = additionalProperties.get("modelPrefix").toString();
+            this.setModelNamePrefix(prefix);
+        }
+
         apiTemplateFiles.clear();
         apiTemplateFiles.put(API_SERVICE.getTemplateName(), API_SERVICE.getFileName());
 
@@ -224,7 +249,85 @@ public class CefCodegen extends AbstractJavaCodegen {
         addCefIntegrationLayer();
         addUtilityLayer();
         addExceptionLayer();
+        addValidationLayer();
         addInterceptorLayer();
+    }
+
+    /**
+     * Processes parameter from OpenAPI specification and extracts validation constraints.
+     * <p>
+     * Extracts and stores validation constraints from parameter schema as vendor extensions:
+     * <ul>
+     *   <li>x-min-length - minimum string length</li>
+     *   <li>x-max-length - maximum string length</li>
+     *   <li>x-pattern - regex pattern</li>
+     *   <li>x-minimum - minimum numeric value</li>
+     *   <li>x-maximum - maximum numeric value</li>
+     *   <li>x-enum-values - allowed enum values</li>
+     *   <li>x-has-validation - flag indicating if any validation is present</li>
+     * </ul>
+     *
+     * @param parameter OpenAPI parameter specification
+     * @param imports set of imports to update
+     * @return processed parameter with validation constraints in vendor extensions
+     */
+    @Override
+    public CodegenParameter fromParameter(Parameter parameter, Set<String> imports) {
+        CodegenParameter param = super.fromParameter(parameter, imports);
+
+        if (parameter.getSchema() != null) {
+            Schema<?> schema = parameter.getSchema();
+
+            // Extract string constraints
+            if (param.isString) {
+                if (schema.getMinLength() != null) {
+                    param.vendorExtensions.put("x-min-length", schema.getMinLength());
+                }
+                if (schema.getMaxLength() != null) {
+                    param.vendorExtensions.put("x-max-length", schema.getMaxLength());
+                }
+                if (schema.getPattern() != null) {
+                    param.vendorExtensions.put("x-pattern", schema.getPattern());
+                }
+            }
+
+            // Extract numeric constraints
+            if (param.isInteger || param.isLong || param.isNumber) {
+                if (schema.getMinimum() != null) {
+                    param.vendorExtensions.put("x-minimum", schema.getMinimum());
+                }
+                if (schema.getMaximum() != null) {
+                    param.vendorExtensions.put("x-maximum", schema.getMaximum());
+                }
+            }
+
+            // Extract enum values
+            if (schema.getEnum() != null && !schema.getEnum().isEmpty()) {
+                List<String> enumValues = new ArrayList<>();
+                for (Object enumValue : schema.getEnum()) {
+                    enumValues.add(enumValue.toString());
+                }
+                // Store as comma-separated string for easier template usage
+                String enumValuesStr = enumValues.stream()
+                    .map(v -> "\"" + v + "\"")
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("");
+                param.vendorExtensions.put("x-enum-values-string", enumValuesStr);
+                param.vendorExtensions.put("x-has-enum-values", true);
+            }
+
+            // Mark if has any validation (including required)
+            boolean hasValidation = param.vendorExtensions.containsKey("x-min-length") ||
+                                   param.vendorExtensions.containsKey("x-max-length") ||
+                                   param.vendorExtensions.containsKey("x-pattern") ||
+                                   param.vendorExtensions.containsKey("x-minimum") ||
+                                   param.vendorExtensions.containsKey("x-maximum") ||
+                                   param.vendorExtensions.containsKey("x-has-enum-values") ||
+                                   param.required;
+            param.vendorExtensions.put("x-has-validation", hasValidation);
+        }
+
+        return param;
     }
 
     /**
@@ -313,6 +416,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         supportingFiles.add(new SupportingFile(NOT_FOUND_EXCEPTION.getTemplateName(), folder, NOT_FOUND_EXCEPTION.getFileName()));
         supportingFiles.add(new SupportingFile(INTERNAL_SERVER_ERROR_EXCEPTION.getTemplateName(), folder, INTERNAL_SERVER_ERROR_EXCEPTION.getFileName()));
         supportingFiles.add(new SupportingFile(NOT_IMPLEMENTED_EXCEPTION.getTemplateName(), folder, NOT_IMPLEMENTED_EXCEPTION.getFileName()));
+        supportingFiles.add(new SupportingFile(VALIDATION_EXCEPTION.getTemplateName(), folder, VALIDATION_EXCEPTION.getFileName()));
     }
 
     /**
@@ -322,14 +426,31 @@ public class CefCodegen extends AbstractJavaCodegen {
      * <ul>
      *   <li>RequestInterceptor - interface for request/response interception (logging, metrics, auth)</li>
      *   <li>ExceptionHandler - interface for centralized exception handling</li>
+     *   <li>CompositeExceptionHandler - type-specific exception handling</li>
      *   <li>CorsInterceptor - CORS handling implementation</li>
+     *   <li>ValidationInterceptor - OpenAPI constraint validation</li>
      * </ul>
      */
     private void addInterceptorLayer() {
         var folder = buildFolderPath(apiPackage + INTERCEPTOR.getSuffix());
         supportingFiles.add(new SupportingFile(REQUEST_INTERCEPTOR.getTemplateName(), folder, REQUEST_INTERCEPTOR.getFileName()));
         supportingFiles.add(new SupportingFile(EXCEPTION_HANDLER.getTemplateName(), folder, EXCEPTION_HANDLER.getFileName()));
+        supportingFiles.add(new SupportingFile(COMPOSITE_EXCEPTION_HANDLER.getTemplateName(), folder, COMPOSITE_EXCEPTION_HANDLER.getFileName()));
         supportingFiles.add(new SupportingFile(CORS_INTERCEPTOR.getTemplateName(), folder, CORS_INTERCEPTOR.getFileName()));
+        supportingFiles.add(new SupportingFile(VALIDATION_INTERCEPTOR.getTemplateName(), folder, VALIDATION_INTERCEPTOR.getFileName()));
+    }
+
+    /**
+     * Adds validation layer supporting files.
+     * <p>
+     * Generates validation utilities for OpenAPI constraint validation:
+     * <ul>
+     *   <li>ParameterValidator - utility class for validating parameters against constraints</li>
+     * </ul>
+     */
+    private void addValidationLayer() {
+        var folder = buildFolderPath(apiPackage + VALIDATION.getSuffix());
+        supportingFiles.add(new SupportingFile(PARAMETER_VALIDATOR.getTemplateName(), folder, PARAMETER_VALIDATOR.getFileName()));
     }
 
     /**

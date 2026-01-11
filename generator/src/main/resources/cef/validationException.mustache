@@ -1,0 +1,161 @@
+package {{apiPackage}}.exception;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+/**
+ * Exception thrown when request parameter validation fails against OpenAPI constraints.
+ *
+ * <p>This exception represents HTTP 400 Bad Request as validation errors
+ * are client-side errors that require the client to modify the request before retrying.
+ *
+ * <p>Contains a list of {@link ValidationError} objects, each representing a specific
+ * validation failure for a request parameter. This allows the client to receive detailed
+ * feedback about all validation failures in a single response.
+ *
+ * <p>Common validation failures include:
+ * <ul>
+ *   <li>Required parameter missing</li>
+ *   <li>String length constraints (minLength, maxLength)</li>
+ *   <li>Numeric value constraints (minimum, maximum)</li>
+ *   <li>Pattern matching (regex) failures</li>
+ *   <li>Enum value not in allowed list</li>
+ * </ul>
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see ValidationError
+ * @see BadRequestException
+ */
+public final class ValidationException extends BadRequestException {
+
+    private final List<ValidationError> errors;
+
+    /**
+     * Constructs a new validation exception with a custom message and list of errors.
+     *
+     * @param message the summary message for the validation failure
+     * @param errors the list of individual validation errors
+     */
+    public ValidationException(String message, List<ValidationError> errors) {
+        super(message);
+        this.errors = Collections.unmodifiableList(new ArrayList<>(errors));
+    }
+
+    /**
+     * Constructs a new validation exception with an auto-generated message.
+     *
+     * <p>The message is built automatically based on the number of errors:
+     * <ul>
+     *   <li>No errors: "Validation failed"</li>
+     *   <li>Single error: The error's message</li>
+     *   <li>Multiple errors: "Validation failed with N error(s)"</li>
+     * </ul>
+     *
+     * @param errors the list of individual validation errors
+     */
+    public ValidationException(List<ValidationError> errors) {
+        this(buildMessage(errors), errors);
+    }
+
+    /**
+     * Returns the list of validation errors.
+     *
+     * @return an unmodifiable list of validation errors
+     */
+    public List<ValidationError> getErrors() {
+        return errors;
+    }
+
+    private static String buildMessage(List<ValidationError> errors) {
+        if (errors.isEmpty()) {
+            return "Validation failed";
+        }
+        if (errors.size() == 1) {
+            return errors.get(0).getMessage();
+        }
+        return "Validation failed with " + errors.size() + " error(s)";
+    }
+
+    /**
+     * Represents a single validation error for a request parameter.
+     *
+     * <p>Contains detailed information about what parameter failed validation,
+     * what constraint was violated, and a human-readable error message.
+     */
+    public static final class ValidationError {
+        private final String parameter;
+        private final Object value;
+        private final String constraint;
+        private final String message;
+
+        /**
+         * Constructs a new validation error.
+         *
+         * @param parameter the name of the parameter that failed validation
+         * @param value the actual value that was provided (may be null)
+         * @param constraint the type of constraint that was violated (e.g., "minLength", "required")
+         * @param message the human-readable error message
+         */
+        public ValidationError(String parameter, Object value, String constraint, String message) {
+            this.parameter = parameter;
+            this.value = value;
+            this.constraint = constraint;
+            this.message = message;
+        }
+
+        /**
+         * Returns the name of the parameter that failed validation.
+         *
+         * @return the parameter name
+         */
+        public String getParameter() {
+            return parameter;
+        }
+
+        /**
+         * Returns the actual value that was provided.
+         *
+         * @return the parameter value (may be null)
+         */
+        public Object getValue() {
+            return value;
+        }
+
+        /**
+         * Returns the type of constraint that was violated.
+         *
+         * <p>Possible constraint types:
+         * <ul>
+         *   <li>required - parameter must be present</li>
+         *   <li>minLength - minimum string length</li>
+         *   <li>maxLength - maximum string length</li>
+         *   <li>minimum - minimum numeric value</li>
+         *   <li>maximum - maximum numeric value</li>
+         *   <li>pattern - regex pattern matching</li>
+         *   <li>enum - value must be in allowed list</li>
+         *   <li>type - value type mismatch</li>
+         * </ul>
+         *
+         * @return the constraint type
+         */
+        public String getConstraint() {
+            return constraint;
+        }
+
+        /**
+         * Returns the human-readable error message.
+         *
+         * @return the error message
+         */
+        public String getMessage() {
+            return message;
+        }
+
+        @Override
+        public String toString() {
+            return message + " (parameter: " + parameter + ", constraint: " + constraint + ")";
+        }
+    }
+}

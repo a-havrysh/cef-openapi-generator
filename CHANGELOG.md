@@ -9,6 +9,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.0] - 2026-01-11
+
+**⚠️ BREAKING CHANGES** - See [MIGRATION.md](MIGRATION.md) for migration guide.
+
+### Breaking Changes
+- **RequestInterceptor interface simplified**: `beforeHandle()` and `onError()` methods now accept only `ApiRequest` (removed `pathVariables` parameter)
+  - Changed from `CefRequest` to `ApiRequest` for better access to query params, headers, and body
+  - Removed redundant `pathVariables` parameter - use `request.getPathVariable(name)` instead
+  - Signature: `beforeHandle(ApiRequest request)` (was `beforeHandle(CefRequest request, Map<String, String> pathVariables)`)
+  - Custom interceptors must be updated - see migration guide below
+  - CorsInterceptor updated: `request.getHeaderByName()` → `request.getHeader()`
+- **Exception classes no longer final**: BadRequestException, NotFoundException, InternalServerErrorException can now be extended
+  - Allows creating custom exception types (e.g., ValidationException extends BadRequestException)
+  - No action required for users - this is backward compatible
+
+### Added
+- **OpenAPI Parameter Validation**: Automatic validation of request parameters against OpenAPI constraints
+  - Validates path, query, and header parameters before reaching service layer
+  - Supported constraints: required, minLength, maxLength, minimum, maximum, pattern (regex), enum
+  - `ValidationException` with detailed error information (HTTP 400)
+  - `ParameterValidator` utility class for type-safe validation
+  - `ValidationInterceptor` automatically generated with metadata from OpenAPI spec
+  - Thread-safe regex pattern caching for performance
+  - Enable with `.withValidation()` in builder
+  - Example:
+    ```java
+    ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+        .withApiRoutes()
+        .withValidation()  // Enable OpenAPI validation
+        .build();
+    ```
+- **Validation Layer**: New package `validation` with utilities
+  - ParameterValidator with methods: validateString, validateInteger, validateNumber
+  - Parsing and validation in one step: validateAndParseInteger, validateAndParseNumber
+  - Collects all validation errors before throwing exception
+- **ValidationException**: Specialized exception for parameter validation errors
+  - Contains list of ValidationError objects with field, value, constraint type, message
+  - HTTP 400 status code
+  - Detailed error reporting for client debugging
+- **Jackson @JsonProperty annotations**: All DTO fields now annotated with @JsonProperty
+  - Uses baseName from OpenAPI spec for proper JSON mapping
+  - Prevents naming collisions with special characters (e.g., $, -, reserved keywords)
+  - Ensures correct serialization/deserialization even with field name transformations
+- **Model Naming Options**: Added configOptions for consistent DTO naming
+  - `modelSuffix` - append suffix to all model names (e.g., "Dto" → TaskDto, CreateTaskRequestDto)
+  - `modelPrefix` - prepend prefix to all model names
+  - Optional, disabled by default to preserve OpenAPI schema names
+- **Type-Specific Exception Handlers**: CompositeExceptionHandler for handling different exception types
+  - Register handlers for specific exception classes via `withExceptionHandler(Class<T>, handler)`
+  - Chain of Responsibility pattern - handlers checked in registration order
+  - Example: separate handlers for ValidationException, ApiException, generic Exception
+  - Fallback to default handler if no type-specific handler matches
+
+### Changed
+- RequestInterceptor.beforeHandle signature: `beforeHandle(ApiRequest request)` - removed pathVariables parameter
+- RequestInterceptor.onError signature: `onError(Exception e, ApiRequest request)` - changed from CefRequest to ApiRequest
+- All exception classes (BadRequestException, NotFoundException, InternalServerErrorException) are now non-final
+- beforeHandle exceptions now trigger onError callbacks for all interceptors
+- DTO fields formatted with blank lines for better readability
+- Removed wildcard imports from generated models
+
+### Upgrading
+See [MIGRATION.md](MIGRATION.md) for detailed migration guide from v1.x to v2.0.0.
+
+---
+
 ## [1.1.0] - 2026-01-10
 
 **⚠️ Breaking Changes** - See [MIGRATION.md](MIGRATION.md) for migration guide.
