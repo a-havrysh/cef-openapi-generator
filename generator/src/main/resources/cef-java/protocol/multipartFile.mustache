@@ -1,0 +1,124 @@
+package {{apiPackage}}.protocol;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * Represents a file uploaded via multipart/form-data.
+ *
+ * <p>Contains file metadata (name, content type, size) and content as byte array.
+ *
+ * <h2>Usage</h2>
+ * <pre>{@code
+ * @Override
+ * public ApiResponse<UploadResponse> handleUploadFile(
+ *     MultipartFile file,
+ *     CefBrowser browser, CefFrame frame, CefRequest cefRequest) {
+ *
+ *     String filename = file.getOriginalFilename();
+ *     String contentType = file.getContentType();
+ *     byte[] content = file.getBytes();
+ *     long size = file.getSize();
+ *
+ *     // Process file...
+ *     return ApiResponse.ok(new UploadResponse(filename, size));
+ * }
+ * }</pre>
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ */
+public final class MultipartFile {
+
+    private final String name;
+    private final String originalFilename;
+    private final String contentType;
+    private final byte[] content;
+
+    /**
+     * Creates multipart file.
+     *
+     * @param name form field name
+     * @param originalFilename original filename from client
+     * @param contentType MIME content type
+     * @param content file content as bytes
+     */
+    public MultipartFile(String name, String originalFilename, String contentType, byte[] content) {
+        this.name = name;
+        this.originalFilename = originalFilename;
+        this.contentType = contentType;
+        this.content = content != null ? content.clone() : new byte[0];
+    }
+
+    /**
+     * Returns form field name.
+     *
+     * @return field name
+     */
+    public String getName() {
+        return name;
+    }
+
+    /**
+     * Returns original filename.
+     *
+     * @return filename from client
+     */
+    public String getOriginalFilename() {
+        return originalFilename;
+    }
+
+    /**
+     * Returns content type.
+     *
+     * @return MIME type (e.g., "image/png", "application/pdf")
+     */
+    public String getContentType() {
+        return contentType;
+    }
+
+    /**
+     * Returns file content as byte array.
+     *
+     * @return file bytes (copy of internal array)
+     */
+    public byte[] getBytes() {
+        return content.clone();
+    }
+
+    /**
+     * Returns file content as input stream.
+     *
+     * @return stream over file content
+     */
+    public InputStream getInputStream() {
+        return new ByteArrayInputStream(content);
+    }
+
+    /**
+     * Returns file size in bytes.
+     *
+     * @return size
+     */
+    public long getSize() {
+        return content.length;
+    }
+
+    /**
+     * Returns file content as string (for text files).
+     *
+     * @return content decoded as UTF-8
+     */
+    public String getContentAsString() {
+        return new String(content, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Checks if file is empty.
+     *
+     * @return true if content is empty
+     */
+    public boolean isEmpty() {
+        return content.length == 0;
+    }
+}

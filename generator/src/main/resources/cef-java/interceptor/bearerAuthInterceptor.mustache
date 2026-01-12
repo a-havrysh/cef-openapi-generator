@@ -1,0 +1,88 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.protocol.ApiResponse;
+import {{apiPackage}}.exception.ApiException;
+
+/**
+ * Bearer token (JWT) authentication interceptor.
+ *
+ * <p>Validates Bearer tokens from Authorization header.
+ *
+ * <h2>Usage</h2>
+ * <pre>{@code
+ * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+ *     .withApiRoutes()
+ *     .withInterceptor(new BearerAuthInterceptor(this::validateToken))
+ *     .build();
+ *
+ * private boolean validateToken(String token) {
+ *     // Validate JWT token (verify signature, expiration, etc.)
+ *     return jwtValidator.validate(token);
+ * }
+ * }</pre>
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ */
+public final class BearerAuthInterceptor implements RequestInterceptor {
+
+    private final TokenValidator validator;
+    private final String bearerFormat;
+
+    /**
+     * Creates Bearer authentication interceptor.
+     *
+     * @param validator function to validate the bearer token
+     */
+    public BearerAuthInterceptor(TokenValidator validator) {
+        this(validator, "JWT");
+    }
+
+    /**
+     * Creates Bearer authentication interceptor with custom format.
+     *
+     * @param validator function to validate the bearer token
+     * @param bearerFormat expected format (e.g., "JWT", "Bearer")
+     */
+    public BearerAuthInterceptor(TokenValidator validator, String bearerFormat) {
+        this.validator = validator;
+        this.bearerFormat = bearerFormat;
+    }
+
+    @Override
+    public void beforeHandle(ApiRequest request) throws Exception {
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || authHeader.isEmpty()) {
+            throw new ApiException(401, "Authorization header required");
+        }
+
+        if (!authHeader.startsWith("Bearer ")) {
+            throw new ApiException(401, "Invalid authorization header format. Expected: Bearer <token>");
+        }
+
+        String token = authHeader.substring(7).trim();
+
+        if (token.isEmpty()) {
+            throw new ApiException(401, "Bearer token required");
+        }
+
+        if (!validator.validate(token)) {
+            throw new ApiException(403, "Invalid or expired token");
+        }
+    }
+
+    /**
+     * Functional interface for token validation.
+     */
+    @FunctionalInterface
+    public interface TokenValidator {
+        /**
+         * Validates the bearer token.
+         *
+         * @param token the token to validate (without "Bearer " prefix)
+         * @return true if valid, false otherwise
+         */
+        boolean validate(String token);
+    }
+}

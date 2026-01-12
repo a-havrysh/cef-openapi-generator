@@ -1,0 +1,215 @@
+package {{apiPackage}}.protocol
+
+import {{apiPackage}}.exception.ApiException
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.cef.browser.CefBrowser
+import org.cef.browser.CefFrame
+import org.cef.network.CefRequest
+import java.io.ByteArrayOutputStream
+import java.net.URI
+import java.net.URLDecoder
+import java.nio.charset.StandardCharsets
+
+/**
+ * HTTP request wrapper that encapsulates all CEF request parameters.
+ *
+ * This class provides a high-level abstraction over CEF's request handling, with lazy parsing
+ * for optimal performance. Request components (query params, body, path variables) are only parsed
+ * when accessed, avoiding unnecessary overhead for requests that don't need all data.
+ *
+ * # CEF Parameter Access
+ * - **Path Variables:** Extracted from URL pattern matching (e.g., /users/{id} -> id=123)
+ * - **Query Parameters:** Parsed from URL query string (e.g., ?filter=active&page=1)
+ * - **Request Body:** Deserialized from POST data using Jackson ObjectMapper
+ * - **HTTP Method:** GET, POST, PUT, DELETE, etc.
+ * - **CEF Objects:** Direct access to CefBrowser, CefFrame, and CefRequest for advanced use
+ *
+ * # Lazy Parsing Strategy
+ * All request components are parsed on first access and cached for subsequent calls. This means:
+ * - Query parameters are only parsed when `getQueryParams()` is called
+ * - Request body is only extracted when `getBodyString()` or `getBody(Class)` is called
+ * - Path is only parsed from URL when `getPath()` is called
+ *
+ * # Usage Examples
+ * ```kotlin
+ * // Example 1: Accessing path variables
+ * // Request: GET /users/123
+ * val userId = request.getPathVariable("id")  // Returns "123"
+ *
+ * // Example 2: Accessing query parameters
+ * // Request: GET /users?status=active&role=admin
+ * val params = request.getQueryParams()
+ * val status = params["status"]  // Returns "active"
+ *
+ * // Example 3: Deserializing request body
+ * // Request: POST /users with JSON body
+ * val user = request.getBody(UserDto::class.java)
+ *
+ * // Example 4: Checking HTTP method
+ * if (request.getMethod() == HttpMethod.POST) {
+ *     // Handle POST logic
+ * }
+ *
+ * // Example 5: Advanced CEF access
+ * val browser = request.getCefBrowser()
+ * browser.executeJavaScript("console.log('Request processed')", "", 0)
+ * ```
+ *
+ * **Thread Safety:** This class is not thread-safe. Each request should be processed
+ * by a single thread.
+ *
+ * **Auto-generated:** This class is generated from OpenAPI specification. Do not modify manually.
+ *
+ * @see ApiResponse
+ * @see HttpMethod
+ */
+class ApiRequest(
+    private val cefRequest: CefRequest,
+    private val cefBrowser: CefBrowser,
+    private val cefFrame: CefFrame
+) {
+    companion object {
+        private val OBJECT_MAPPER = ObjectMapper()
+    }
+
+    // Lazy-initialized fields
+    private var method: HttpMethod? = null
+    private var path: String? = null
+    private var bodyString: String? = null
+    private var queryParams: Map<String, String>? = null
+    private var pathVariables: Map<String, String> = emptyMap()
+
+    fun getMethod(): HttpMethod {
+        if (method == null) {
+            method = HttpMethod.fromString(cefRequest.method)
+        }
+        return method!!
+    }
+
+    fun getPath(): String {
+        if (path == null) {
+            path = try {
+                val uri = URI(cefRequest.url)
+                uri.path
+            } catch (e: Exception) {
+                "/"
+            }
+        }
+        return path!!
+    }
+
+    fun getBodyString(): String? {
+        if (bodyString == null) {
+            bodyString = extractBodyString()
+        }
+        return bodyString
+    }
+
+    fun getQueryParams(): Map<String, String> {
+        if (queryParams == null) {
+            queryParams = parseQueryParams()
+        }
+        return queryParams!!
+    }
+
+    fun getQueryParam(name: String): String? {
+        return getQueryParams()[name]
+    }
+
+    fun getPathVariables(): Map<String, String> {
+        return pathVariables
+    }
+
+    fun <T> getBody(clazz: Class<T>): T? {
+        return try {
+            val body = getBodyString()
+            if (body == null || body.isEmpty()) {
+                null
+            } else {
+                OBJECT_MAPPER.readValue(body, clazz)
+            }
+        } catch (e: Exception) {
+            throw ApiException.badRequest("Invalid request body: " + e.message)
+        }
+    }
+
+    fun getPathVariable(name: String): String? {
+        return pathVariables[name]
+    }
+
+    fun getCefBrowser(): CefBrowser {
+        return cefBrowser
+    }
+
+    fun getCefFrame(): CefFrame {
+        return cefFrame
+    }
+
+    fun getCefRequest(): CefRequest {
+        return cefRequest
+    }
+
+    /**
+     * Sets path variables extracted from URL pattern matching.
+     * Called by handler during request processing.
+     */
+    fun setPathVariables(pathVariables: Map<String, String>?) {
+        this.pathVariables = pathVariables ?: emptyMap()
+    }
+
+    /**
+     * Get HTTP header value by name.
+     * Used for CORS origin checking and other header-based logic.
+     */
+    fun getHeader(headerName: String): String? {
+        return cefRequest.getHeaderByName(headerName)
+    }
+
+    private fun extractBodyString(): String? {
+        val postData = cefRequest.postData ?: return null
+
+        val elements = java.util.Vector<org.cef.network.CefPostDataElement>()
+        postData.getElements(elements)
+        if (elements.isEmpty()) {
+            return null
+        }
+
+        return try {
+            val output = ByteArrayOutputStream()
+            for (element in elements) {
+                // CEF API requires pre-allocated buffer
+                val buffer = ByteArray(65536) // 64KB buffer
+                val bytesRead = element.getBytes(buffer.size, buffer)
+                if (bytesRead > 0) {
+                    output.write(buffer, 0, bytesRead)
+                }
+            }
+            output.toString(StandardCharsets.UTF_8)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun parseQueryParams(): Map<String, String> {
+        return try {
+            val uri = URI(cefRequest.url)
+            val query = uri.query ?: return emptyMap()
+            if (query.isEmpty()) {
+                return emptyMap()
+            }
+
+            val params = mutableMapOf<String, String>()
+            for (param in query.split("&")) {
+                val keyValue = param.split("=", limit = 2)
+                if (keyValue.size == 2) {
+                    val key = URLDecoder.decode(keyValue[0], StandardCharsets.UTF_8)
+                    val value = URLDecoder.decode(keyValue[1], StandardCharsets.UTF_8)
+                    params[key] = value
+                }
+            }
+            params
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+}

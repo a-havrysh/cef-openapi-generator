@@ -89,7 +89,13 @@ public class CefCodegen extends AbstractJavaCodegen {
         COMPOSITE_EXCEPTION_HANDLER("compositeExceptionHandler.mustache", "CompositeExceptionHandler.java"),
         CORS_INTERCEPTOR("corsInterceptor.mustache", "CorsInterceptor.java"),
         VALIDATION_INTERCEPTOR("validationInterceptor.mustache", "ValidationInterceptor.java"),
-        URL_FILTER_INTERCEPTOR("urlFilterInterceptor.mustache", "UrlFilterInterceptor.java");
+        URL_FILTER_INTERCEPTOR("urlFilterInterceptor.mustache", "UrlFilterInterceptor.java"),
+        API_KEY_AUTH_INTERCEPTOR("apiKeyAuthInterceptor.mustache", "ApiKeyAuthInterceptor.java"),
+        BEARER_AUTH_INTERCEPTOR("bearerAuthInterceptor.mustache", "BearerAuthInterceptor.java"),
+        BASIC_AUTH_INTERCEPTOR("basicAuthInterceptor.mustache", "BasicAuthInterceptor.java"),
+        MULTIPART_FILE("multipartFile.mustache", "MultipartFile.java"),
+        MULTIPART_PARSER("multipartParser.mustache", "MultipartParser.java"),
+        MOCK_SERVICE("mockService.mustache", "MockService.java");
 
         private final String templateName;
         private final String fileName;
@@ -149,7 +155,7 @@ public class CefCodegen extends AbstractJavaCodegen {
     // Generator constants
     private static final String GENERATOR_NAME = "cef";
     private static final String GENERATOR_HELP = "CEF generator for BPMN Editor";
-    private static final String TEMPLATE_DIR = "cef";
+    private static final String TEMPLATE_DIR = "cef-java";
     private static final String SERVICE_SUBDIR = "service";
 
     // Enum processing constants
@@ -242,7 +248,20 @@ public class CefCodegen extends AbstractJavaCodegen {
         }
 
         apiTemplateFiles.clear();
-        apiTemplateFiles.put(API_SERVICE.getTemplateName(), API_SERVICE.getFileName());
+        apiTemplateFiles.put("api/" + API_SERVICE.getTemplateName(), API_SERVICE.getFileName());
+        apiTemplateFiles.put("api/" + MOCK_SERVICE.getTemplateName(), MOCK_SERVICE.getFileName());
+
+        // Configure model templates with layered structure
+        modelTemplateFiles.clear();
+        modelTemplateFiles.put("model/model.mustache", ".java");
+        modelDocTemplateFiles.clear();
+        modelDocTemplateFiles.put("model/model_doc.mustache", ".md");
+        modelTestTemplateFiles.clear();
+        modelTestTemplateFiles.put("model/model_test.mustache", ".java");
+        apiDocTemplateFiles.clear();
+        apiDocTemplateFiles.put("api/api_doc.mustache", ".md");
+        apiTestTemplateFiles.clear();
+        apiTestTemplateFiles.put("api/api_test.mustache", ".java");
 
         addProtocolLayer();
         addRoutingLayer();
@@ -278,8 +297,21 @@ public class CefCodegen extends AbstractJavaCodegen {
         if (parameter.getSchema() != null) {
             Schema<?> schema = parameter.getSchema();
 
-            // Extract string constraints
+            // Extract string constraints and formats
             if (param.isString) {
+                // Check for date/time formats (format: date, date-time)
+                String format = schema.getFormat();
+                if ("date".equals(format)) {
+                    param.vendorExtensions.put("x-is-date", true);
+                    param.vendorExtensions.put("x-java-type", "java.time.LocalDate");
+                } else if ("date-time".equals(format)) {
+                    param.vendorExtensions.put("x-is-date-time", true);
+                    param.vendorExtensions.put("x-java-type", "java.time.OffsetDateTime");
+                } else if (format != null && !format.isEmpty()) {
+                    // Store format for validation (email, uuid, uri, hostname, ipv4, ipv6, etc.)
+                    param.vendorExtensions.put("x-format", format);
+                }
+
                 if (schema.getMinLength() != null) {
                     param.vendorExtensions.put("x-min-length", schema.getMinLength());
                 }
@@ -287,7 +319,9 @@ public class CefCodegen extends AbstractJavaCodegen {
                     param.vendorExtensions.put("x-max-length", schema.getMaxLength());
                 }
                 if (schema.getPattern() != null) {
-                    param.vendorExtensions.put("x-pattern", schema.getPattern());
+                    // Escape backslashes for Java string literals in generated code
+                    String escapedPattern = schema.getPattern().replace("\\", "\\\\");
+                    param.vendorExtensions.put("x-pattern", escapedPattern);
                 }
             }
 
@@ -299,6 +333,20 @@ public class CefCodegen extends AbstractJavaCodegen {
                 if (schema.getMaximum() != null) {
                     param.vendorExtensions.put("x-maximum", schema.getMaximum());
                 }
+                if (schema.getExclusiveMinimum() != null) {
+                    param.vendorExtensions.put("x-exclusive-minimum", schema.getExclusiveMinimum());
+                }
+                if (schema.getExclusiveMaximum() != null) {
+                    param.vendorExtensions.put("x-exclusive-maximum", schema.getExclusiveMaximum());
+                }
+                if (schema.getMultipleOf() != null) {
+                    param.vendorExtensions.put("x-multiple-of", schema.getMultipleOf());
+                }
+            }
+
+            // Extract nullable flag
+            if (schema.getNullable() != null && schema.getNullable()) {
+                param.vendorExtensions.put("x-nullable", true);
             }
 
             // Extract enum values
@@ -316,13 +364,51 @@ public class CefCodegen extends AbstractJavaCodegen {
                 param.vendorExtensions.put("x-has-enum-values", true);
             }
 
+            // Extract array constraints
+            if (param.isArray) {
+                if (schema.getMinItems() != null) {
+                    param.vendorExtensions.put("x-min-items", schema.getMinItems());
+                }
+                if (schema.getMaxItems() != null) {
+                    param.vendorExtensions.put("x-max-items", schema.getMaxItems());
+                }
+                if (schema.getUniqueItems() != null) {
+                    param.vendorExtensions.put("x-unique-items", schema.getUniqueItems());
+                }
+
+                // Extract item enum values for array elements
+                if (schema.getItems() != null) {
+                    Schema<?> itemsSchema = schema.getItems();
+                    if (itemsSchema.getEnum() != null && !itemsSchema.getEnum().isEmpty()) {
+                        List<String> itemEnumValues = new ArrayList<>();
+                        for (Object enumValue : itemsSchema.getEnum()) {
+                            itemEnumValues.add(enumValue.toString());
+                        }
+                        String itemEnumValuesStr = itemEnumValues.stream()
+                            .map(v -> "\"" + v + "\"")
+                            .reduce((a, b) -> a + ", " + b)
+                            .orElse("");
+                        param.vendorExtensions.put("x-item-enum-values-string", itemEnumValuesStr);
+                        param.vendorExtensions.put("x-item-enum-values", true);
+                    }
+                }
+            }
+
             // Mark if has any validation (including required)
             boolean hasValidation = param.vendorExtensions.containsKey("x-min-length") ||
                                    param.vendorExtensions.containsKey("x-max-length") ||
                                    param.vendorExtensions.containsKey("x-pattern") ||
                                    param.vendorExtensions.containsKey("x-minimum") ||
                                    param.vendorExtensions.containsKey("x-maximum") ||
+                                   param.vendorExtensions.containsKey("x-exclusive-minimum") ||
+                                   param.vendorExtensions.containsKey("x-exclusive-maximum") ||
+                                   param.vendorExtensions.containsKey("x-multiple-of") ||
                                    param.vendorExtensions.containsKey("x-has-enum-values") ||
+                                   param.vendorExtensions.containsKey("x-min-items") ||
+                                   param.vendorExtensions.containsKey("x-max-items") ||
+                                   param.vendorExtensions.containsKey("x-unique-items") ||
+                                   param.vendorExtensions.containsKey("x-item-enum-values") ||
+                                   param.vendorExtensions.containsKey("x-format") ||
                                    param.required;
             param.vendorExtensions.put("x-has-validation", hasValidation);
         }
@@ -338,13 +424,15 @@ public class CefCodegen extends AbstractJavaCodegen {
      *   <li>HttpMethod - HTTP method enumeration</li>
      *   <li>ApiRequest - request wrapper with method, URL, headers, body</li>
      *   <li>ApiResponse - response wrapper with status, headers, body</li>
+     *   <li>MultipartFile - file upload representation</li>
      * </ul>
      */
     private void addProtocolLayer() {
         var folder = buildFolderPath(apiPackage + PROTOCOL.getSuffix());
-        supportingFiles.add(new SupportingFile(HTTP_METHOD.getTemplateName(), folder, HTTP_METHOD.getFileName()));
-        supportingFiles.add(new SupportingFile(API_REQUEST.getTemplateName(), folder, API_REQUEST.getFileName()));
-        supportingFiles.add(new SupportingFile(API_RESPONSE.getTemplateName(), folder, API_RESPONSE.getFileName()));
+        supportingFiles.add(new SupportingFile("protocol/" + HTTP_METHOD.getTemplateName(), folder, HTTP_METHOD.getFileName()));
+        supportingFiles.add(new SupportingFile("protocol/" + API_REQUEST.getTemplateName(), folder, API_REQUEST.getFileName()));
+        supportingFiles.add(new SupportingFile("protocol/" + API_RESPONSE.getTemplateName(), folder, API_RESPONSE.getFileName()));
+        supportingFiles.add(new SupportingFile("protocol/" + MULTIPART_FILE.getTemplateName(), folder, MULTIPART_FILE.getFileName()));
     }
 
     /**
@@ -358,8 +446,8 @@ public class CefCodegen extends AbstractJavaCodegen {
      */
     private void addRoutingLayer() {
         var folder = buildFolderPath(apiPackage + ROUTING.getSuffix());
-        supportingFiles.add(new SupportingFile(ROUTE_TREE.getTemplateName(), folder, ROUTE_TREE.getFileName()));
-        supportingFiles.add(new SupportingFile(ROUTE_NODE.getTemplateName(), folder, ROUTE_NODE.getFileName()));
+        supportingFiles.add(new SupportingFile("routing/" + ROUTE_TREE.getTemplateName(), folder, ROUTE_TREE.getFileName()));
+        supportingFiles.add(new SupportingFile("routing/" + ROUTE_NODE.getTemplateName(), folder, ROUTE_NODE.getFileName()));
     }
 
     /**
@@ -375,10 +463,10 @@ public class CefCodegen extends AbstractJavaCodegen {
      */
     private void addCefIntegrationLayer() {
         var folder = buildFolderPath(apiPackage + CEF.getSuffix());
-        supportingFiles.add(new SupportingFile(API_CEF_REQUEST_HANDLER.getTemplateName(), folder, API_CEF_REQUEST_HANDLER.getFileName()));
-        supportingFiles.add(new SupportingFile(API_CEF_REQUEST_HANDLER_BUILDER.getTemplateName(), folder, API_CEF_REQUEST_HANDLER_BUILDER.getFileName()));
-        supportingFiles.add(new SupportingFile(API_RESOURCE_REQUEST_HANDLER.getTemplateName(), folder, API_RESOURCE_REQUEST_HANDLER.getFileName()));
-        supportingFiles.add(new SupportingFile(API_RESPONSE_HANDLER.getTemplateName(), folder, API_RESPONSE_HANDLER.getFileName()));
+        supportingFiles.add(new SupportingFile("cef/" + API_CEF_REQUEST_HANDLER.getTemplateName(), folder, API_CEF_REQUEST_HANDLER.getFileName()));
+        supportingFiles.add(new SupportingFile("cef/" + API_CEF_REQUEST_HANDLER_BUILDER.getTemplateName(), folder, API_CEF_REQUEST_HANDLER_BUILDER.getFileName()));
+        supportingFiles.add(new SupportingFile("cef/" + API_RESOURCE_REQUEST_HANDLER.getTemplateName(), folder, API_RESOURCE_REQUEST_HANDLER.getFileName()));
+        supportingFiles.add(new SupportingFile("protocol/" + API_RESPONSE_HANDLER.getTemplateName(), folder, API_RESPONSE_HANDLER.getFileName()));
     }
 
     /**
@@ -387,14 +475,13 @@ public class CefCodegen extends AbstractJavaCodegen {
      * Generates:
      * <ul>
      *   <li>ContentTypeResolver - content type detection and resolution</li>
+     *   <li>MultipartParser - multipart/form-data parser for file uploads</li>
      * </ul>
      */
     private void addUtilityLayer() {
-        supportingFiles.add(new SupportingFile(
-                CONTENT_TYPE_RESOLVER.getTemplateName(),
-                buildFolderPath(apiPackage + UTIL.getSuffix()),
-                CONTENT_TYPE_RESOLVER.getFileName()
-        ));
+        var folder = buildFolderPath(apiPackage + UTIL.getSuffix());
+        supportingFiles.add(new SupportingFile("protocol/" + CONTENT_TYPE_RESOLVER.getTemplateName(), folder, CONTENT_TYPE_RESOLVER.getFileName()));
+        supportingFiles.add(new SupportingFile("protocol/" + MULTIPART_PARSER.getTemplateName(), folder, MULTIPART_PARSER.getFileName()));
     }
 
     /**
@@ -411,12 +498,12 @@ public class CefCodegen extends AbstractJavaCodegen {
      */
     private void addExceptionLayer() {
         var folder = buildFolderPath(apiPackage + EXCEPTION.getSuffix());
-        supportingFiles.add(new SupportingFile(API_EXCEPTION.getTemplateName(), folder, API_EXCEPTION.getFileName()));
-        supportingFiles.add(new SupportingFile(BAD_REQUEST_EXCEPTION.getTemplateName(), folder, BAD_REQUEST_EXCEPTION.getFileName()));
-        supportingFiles.add(new SupportingFile(NOT_FOUND_EXCEPTION.getTemplateName(), folder, NOT_FOUND_EXCEPTION.getFileName()));
-        supportingFiles.add(new SupportingFile(INTERNAL_SERVER_ERROR_EXCEPTION.getTemplateName(), folder, INTERNAL_SERVER_ERROR_EXCEPTION.getFileName()));
-        supportingFiles.add(new SupportingFile(NOT_IMPLEMENTED_EXCEPTION.getTemplateName(), folder, NOT_IMPLEMENTED_EXCEPTION.getFileName()));
-        supportingFiles.add(new SupportingFile(VALIDATION_EXCEPTION.getTemplateName(), folder, VALIDATION_EXCEPTION.getFileName()));
+        supportingFiles.add(new SupportingFile("exception/" + API_EXCEPTION.getTemplateName(), folder, API_EXCEPTION.getFileName()));
+        supportingFiles.add(new SupportingFile("exception/" + BAD_REQUEST_EXCEPTION.getTemplateName(), folder, BAD_REQUEST_EXCEPTION.getFileName()));
+        supportingFiles.add(new SupportingFile("exception/" + NOT_FOUND_EXCEPTION.getTemplateName(), folder, NOT_FOUND_EXCEPTION.getFileName()));
+        supportingFiles.add(new SupportingFile("exception/" + INTERNAL_SERVER_ERROR_EXCEPTION.getTemplateName(), folder, INTERNAL_SERVER_ERROR_EXCEPTION.getFileName()));
+        supportingFiles.add(new SupportingFile("exception/" + NOT_IMPLEMENTED_EXCEPTION.getTemplateName(), folder, NOT_IMPLEMENTED_EXCEPTION.getFileName()));
+        supportingFiles.add(new SupportingFile("exception/" + VALIDATION_EXCEPTION.getTemplateName(), folder, VALIDATION_EXCEPTION.getFileName()));
     }
 
     /**
@@ -429,15 +516,21 @@ public class CefCodegen extends AbstractJavaCodegen {
      *   <li>CompositeExceptionHandler - type-specific exception handling</li>
      *   <li>CorsInterceptor - CORS handling implementation</li>
      *   <li>ValidationInterceptor - OpenAPI constraint validation</li>
+     *   <li>ApiKeyAuthInterceptor - API Key authentication</li>
+     *   <li>BearerAuthInterceptor - Bearer token (JWT) authentication</li>
+     *   <li>BasicAuthInterceptor - Basic HTTP authentication</li>
      * </ul>
      */
     private void addInterceptorLayer() {
         var folder = buildFolderPath(apiPackage + INTERCEPTOR.getSuffix());
-        supportingFiles.add(new SupportingFile(REQUEST_INTERCEPTOR.getTemplateName(), folder, REQUEST_INTERCEPTOR.getFileName()));
-        supportingFiles.add(new SupportingFile(EXCEPTION_HANDLER.getTemplateName(), folder, EXCEPTION_HANDLER.getFileName()));
-        supportingFiles.add(new SupportingFile(COMPOSITE_EXCEPTION_HANDLER.getTemplateName(), folder, COMPOSITE_EXCEPTION_HANDLER.getFileName()));
-        supportingFiles.add(new SupportingFile(CORS_INTERCEPTOR.getTemplateName(), folder, CORS_INTERCEPTOR.getFileName()));
-        supportingFiles.add(new SupportingFile(VALIDATION_INTERCEPTOR.getTemplateName(), folder, VALIDATION_INTERCEPTOR.getFileName()));
+        supportingFiles.add(new SupportingFile("interceptor/" + REQUEST_INTERCEPTOR.getTemplateName(), folder, REQUEST_INTERCEPTOR.getFileName()));
+        supportingFiles.add(new SupportingFile("exception/" + EXCEPTION_HANDLER.getTemplateName(), folder, EXCEPTION_HANDLER.getFileName()));
+        supportingFiles.add(new SupportingFile("exception/" + COMPOSITE_EXCEPTION_HANDLER.getTemplateName(), folder, COMPOSITE_EXCEPTION_HANDLER.getFileName()));
+        supportingFiles.add(new SupportingFile("interceptor/" + CORS_INTERCEPTOR.getTemplateName(), folder, CORS_INTERCEPTOR.getFileName()));
+        supportingFiles.add(new SupportingFile("interceptor/" + API_KEY_AUTH_INTERCEPTOR.getTemplateName(), folder, API_KEY_AUTH_INTERCEPTOR.getFileName()));
+        supportingFiles.add(new SupportingFile("interceptor/" + BEARER_AUTH_INTERCEPTOR.getTemplateName(), folder, BEARER_AUTH_INTERCEPTOR.getFileName()));
+        supportingFiles.add(new SupportingFile("interceptor/" + BASIC_AUTH_INTERCEPTOR.getTemplateName(), folder, BASIC_AUTH_INTERCEPTOR.getFileName()));
+        supportingFiles.add(new SupportingFile("interceptor/" + VALIDATION_INTERCEPTOR.getTemplateName(), folder, VALIDATION_INTERCEPTOR.getFileName()));
     }
 
     /**
@@ -450,7 +543,7 @@ public class CefCodegen extends AbstractJavaCodegen {
      */
     private void addValidationLayer() {
         var folder = buildFolderPath(apiPackage + VALIDATION.getSuffix());
-        supportingFiles.add(new SupportingFile(PARAMETER_VALIDATOR.getTemplateName(), folder, PARAMETER_VALIDATOR.getFileName()));
+        supportingFiles.add(new SupportingFile("validation/" + PARAMETER_VALIDATOR.getTemplateName(), folder, PARAMETER_VALIDATOR.getFileName()));
     }
 
     /**

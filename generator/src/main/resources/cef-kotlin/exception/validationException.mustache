@@ -1,0 +1,88 @@
+package {{apiPackage}}.exception
+
+/**
+ * Exception thrown when request parameter validation fails against OpenAPI constraints.
+ *
+ * This exception represents HTTP 400 Bad Request as validation errors
+ * are client-side errors that require the client to modify the request before retrying.
+ *
+ * Contains a list of [ValidationError] objects, each representing a specific
+ * validation failure for a request parameter. This allows the client to receive detailed
+ * feedback about all validation failures in a single response.
+ *
+ * Common validation failures include:
+ * - Required parameter missing
+ * - String length constraints (minLength, maxLength)
+ * - Numeric value constraints (minimum, maximum)
+ * - Pattern matching (regex) failures
+ * - Enum value not in allowed list
+ *
+ * Auto-generated from OpenAPI specification.
+ *
+ * @see ValidationError
+ * @see BadRequestException
+ */
+class ValidationException : BadRequestException {
+
+    private val errors: List<ValidationError>
+
+    /**
+     * Constructs a new validation exception with a custom message and list of errors.
+     *
+     * @param message the summary message for the validation failure
+     * @param errors the list of individual validation errors
+     */
+    constructor(message: String, errors: List<ValidationError>) : super(message) {
+        this.errors = errors.toList()
+    }
+
+    /**
+     * Constructs a new validation exception with an auto-generated message.
+     *
+     * The message is built automatically based on the number of errors:
+     * - No errors: "Validation failed"
+     * - Single error: The error's message
+     * - Multiple errors: "Validation failed with N error(s)"
+     *
+     * @param errors the list of individual validation errors
+     */
+    constructor(errors: List<ValidationError>) : this(buildMessage(errors), errors)
+
+    /**
+     * Returns the list of validation errors.
+     *
+     * @return an unmodifiable list of validation errors
+     */
+    fun getErrors(): List<ValidationError> {
+        return errors.toList()
+    }
+
+    companion object {
+        private fun buildMessage(errors: List<ValidationError>): String {
+            return when {
+                errors.isEmpty() -> "Validation failed"
+                errors.size == 1 -> errors[0].getMessage()
+                else -> "Validation failed with ${errors.size} error(s)"
+            }
+        }
+    }
+
+    /**
+     * Represents a single validation error for a request parameter.
+     *
+     * Contains detailed information about what parameter failed validation,
+     * what constraint was violated, and a human-readable error message.
+     */
+    data class ValidationError(
+        val parameter: String,
+        val value: Any?,
+        val constraint: String,
+        private val message: String
+    ) {
+        fun getMessage(): String = message
+
+        override fun toString(): String {
+            return "$message (parameter: $parameter, constraint: $constraint)"
+        }
+    }
+}

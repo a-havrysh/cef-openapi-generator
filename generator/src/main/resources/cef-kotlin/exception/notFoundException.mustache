@@ -1,0 +1,33 @@
+package {{apiPackage}}.exception
+
+/**
+ * Exception indicating the requested resource was not found (HTTP 404 Not Found).
+ *
+ * This exception should be thrown when a resource referenced by the client
+ * cannot be found in the system. Common scenarios include:
+ * - Resource ID does not exist
+ * - Endpoint path does not match any registered routes
+ * - User or entity has been deleted
+ *
+ * The client may retry the request after modifying the resource identifier.
+ *
+ * Auto-generated from OpenAPI specification.
+ *
+ * @see ApiException
+ */
+class NotFoundException : ApiException {
+    /**
+     * Constructs a new not found exception with the specified message.
+     *
+     * @param message the detail message explaining which resource was not found
+     */
+    constructor(message: String) : super(404, message)
+
+    /**
+     * Constructs a new not found exception with the specified message and cause.
+     *
+     * @param message the detail message explaining which resource was not found
+     * @param cause the underlying exception that triggered this not found error
+     */
+    constructor(message: String, cause: Throwable) : super(404, message, cause)
+}

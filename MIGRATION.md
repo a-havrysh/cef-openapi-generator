@@ -4,6 +4,48 @@ Guide for migrating between major versions of CEF OpenAPI Generator.
 
 ---
 
+## Migrating to 3.0.0 from 2.x
+
+### Breaking Changes
+
+**1. Template Folder Structure**
+
+Templates are now organized by architectural layers. If you have custom templates:
+
+**Migration:**
+```bash
+# Old paths (2.x)
+cef/apiService.mustache → cef-java/api/apiService.mustache
+kotlin/kotlinApiService.mustache → cef-kotlin/api/apiService.mustache (or use base template)
+
+# Remove kotlin-prefixed duplicates
+kotlin/kotlinHttpMethod.mustache → DELETE (use cef-kotlin/protocol/httpMethod.mustache)
+```
+
+**2. Example Projects Moved**
+
+```bash
+# Old paths (2.x)
+example/ → examples/cef-java/
+kotlin-example/ → examples/cef-kotlin/
+```
+
+Update build scripts and documentation accordingly.
+
+**3. KotlinCodegen Class Renamed**
+
+```java
+// Old (2.x)
+import io.github.cef.codegen.KotlinCodegen;
+public class MyGenerator extends KotlinCodegen { }
+
+// New (3.0.0)
+import io.github.cef.codegen.CefKotlinCodegen;
+public class MyGenerator extends CefKotlinCodegen { }
+```
+
+---
+
 ## Migrating from 1.0.x to 1.1.0
 
 Version 1.1.0 introduces significant improvements with breaking changes to service method signatures.
@@ -628,6 +670,308 @@ If migration issues occur:
 
 3. **Report issue:**
    https://github.com/a-havrysh/cef-openapi-generator/issues
+
+---
+
+## Migrating from 2.0.x to 2.1.0
+
+Version 2.1.0 adds OpenAPI standard features with full backward compatibility. No breaking changes.
+
+### New Features (All Optional)
+
+#### 1. Default Values
+
+Parameters with `default` in OpenAPI schema automatically applied in wrapper methods.
+
+**OpenAPI:**
+```yaml
+parameters:
+  - name: page
+    schema:
+      type: integer
+      default: 1
+```
+
+**Generated (v2.1.0):**
+```java
+default ApiResponse<TaskList> handleListTasks(Integer page, ...) {
+    Integer actualPage = page != null ? page : 1;  // Auto-applied default
+    return ApiResponse.ok(listTasks(actualPage));
+}
+```
+
+**Action:** None required - defaults applied automatically if defined in OpenAPI.
+
+#### 2. Date/Time Parsing
+
+Parameters with `format: date` or `format: date-time` now validated and documented.
+
+**OpenAPI:**
+```yaml
+parameters:
+  - name: startDate
+    schema:
+      type: string
+      format: date  # YYYY-MM-DD
+  - name: createdAfter
+    schema:
+      type: string
+      format: date-time  # ISO 8601 with timezone
+```
+
+**Validation:** ValidationInterceptor validates date/time formats automatically.
+
+**Action:** None required - validation happens automatically with `.withValidation()`.
+
+#### 3. Boolean Parameters
+
+**OpenAPI:**
+```yaml
+parameters:
+  - name: active
+    schema:
+      type: boolean
+```
+
+**Accepted values:** true, false, 1, 0, yes, no, on, off (case-insensitive)
+
+**Action:** None required - works automatically.
+
+#### 4. Enhanced JavaDoc
+
+Service methods now include:
+- Operation descriptions from OpenAPI
+- Parameter constraints in @param docs
+- @throws annotations for exceptions
+
+**Action:** None required - regenerate to get enhanced documentation.
+
+#### 5. Deprecated Annotations
+
+**OpenAPI:**
+```yaml
+/api/v1/tasks:
+  get:
+    deprecated: true
+    description: Use /api/v2/tasks instead
+```
+
+**Generated:**
+```java
+/**
+ * @deprecated Use /api/v2/tasks instead
+ */
+@Deprecated
+public TaskList getTasksV1() {
+```
+
+**Action:** None required - deprecation warnings appear in IDE automatically.
+
+### Migration Steps
+
+#### Step 1: Update Dependency
+
+```kotlin
+classpath("io.github.cef:generator:2.1.0")
+```
+
+#### Step 2: Regenerate
+
+```bash
+./gradlew clean generateApi
+```
+
+#### Step 3: Build
+
+```bash
+./gradlew build
+```
+
+All changes are backward compatible. Existing code continues working unchanged.
+
+---
+
+## Migrating from 2.1.x to 2.2.0
+
+Version 2.2.0 adds array parameters, format validation, and advanced numeric constraints. No breaking changes.
+
+### New Features (All Optional)
+
+#### 1. Array Parameters
+
+**OpenAPI:**
+```yaml
+parameters:
+  - name: tags
+    schema:
+      type: array
+      items:
+        type: string
+        enum: [java, kotlin, scala]
+      minItems: 1
+      maxItems: 10
+      uniqueItems: true
+```
+
+**Usage:** `?tags=java,kotlin` → validated automatically
+
+**Validation:**
+- minItems: minimum array length
+- maxItems: maximum array length
+- uniqueItems: ensures no duplicates
+- Item enum: validates each element
+
+**Action:** None required - works automatically with `.withValidation()`.
+
+#### 2. Format Validation
+
+**OpenAPI:**
+```yaml
+parameters:
+  - name: email
+    schema:
+      type: string
+      format: email
+  - name: userId
+    schema:
+      type: string
+      format: uuid
+```
+
+**Supported formats:**
+- email - RFC 5322
+- uuid - RFC 4122
+- uri, uri-reference - RFC 3986
+- hostname - RFC 1123
+- ipv4, ipv6 - IP addresses
+
+**Action:** None required - validation automatic with `.withValidation()`.
+
+#### 3. Advanced Numeric Constraints
+
+**OpenAPI:**
+```yaml
+price:
+  type: number
+  multipleOf: 0.01        # Must be multiple of 1 cent
+  minimum: 0
+  exclusiveMinimum: true  # > 0, not >= 0
+```
+
+**Action:** None required - works automatically.
+
+### Migration Steps
+
+Same as v2.1.0 - just update version and regenerate:
+
+```kotlin
+classpath("io.github.cef:generator:2.2.0")
+```
+
+```bash
+./gradlew clean generateApi build
+```
+
+---
+
+## Migrating from 2.2.x to 2.3.0
+
+Version 2.3.0 adds security interceptors, file upload support, and mock service generation. No breaking changes.
+
+### New Features (All Optional)
+
+#### 1. Security Interceptors
+
+**API Key Authentication:**
+```java
+ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+    .withApiRoutes()
+    .withInterceptor(new ApiKeyAuthInterceptor(
+        "X-API-Key",
+        ApiKeyAuthInterceptor.ApiKeyLocation.HEADER,
+        apiKey -> validateApiKey(apiKey)
+    ))
+    .build();
+```
+
+**Bearer Token (JWT):**
+```java
+.withInterceptor(new BearerAuthInterceptor(token -> validateJWT(token)))
+```
+
+**Basic Auth:**
+```java
+.withInterceptor(new BasicAuthInterceptor(
+    (username, password) -> authenticate(username, password)
+))
+```
+
+**Action:** Register interceptors as needed for your API.
+
+#### 2. File Upload Support
+
+**OpenAPI:**
+```yaml
+requestBody:
+  content:
+    multipart/form-data:
+      schema:
+        type: object
+        properties:
+          file:
+            type: string
+            format: binary
+          description:
+            type: string
+```
+
+**Service Method:**
+```java
+@Override
+public ApiResponse<UploadResponse> handleUploadFile(
+    MultipartFile file,
+    CefBrowser browser, CefFrame frame, CefRequest cefRequest) {
+
+    String filename = file.getOriginalFilename();
+    byte[] content = file.getBytes();
+    long size = file.getSize();
+
+    // Process file...
+    return ApiResponse.ok(new UploadResponse(filename, size));
+}
+```
+
+**Action:** Implement file upload handlers as needed.
+
+#### 3. Mock Service Generator
+
+**Generated:**
+```java
+public class TasksApiMockService implements TasksApiService {
+    @Override
+    public Task getTask(String taskId) {
+        // Returns example from OpenAPI spec
+        Task mockTask = new Task();
+        mockTask.setId("task-123");
+        mockTask.setTitle("Example Task");
+        return mockTask;
+    }
+}
+```
+
+**Action:** Use mock services for prototyping or testing.
+
+### Migration Steps
+
+```kotlin
+classpath("io.github.cef:generator:2.3.0")
+```
+
+```bash
+./gradlew clean generateApi build
+```
+
+All features are opt-in. Existing code works unchanged.
 
 ---
 

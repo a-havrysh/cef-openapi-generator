@@ -1,0 +1,12 @@
+package {{apiPackage}}.interceptor
+
+import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.exception.ApiException
+
+/**
+ * Interface for handling exceptions in API requests.
+ * Auto-generated from OpenAPI specification.
+ */
+interface ExceptionHandler {
+    fun handle(exception: Exception): ApiResponse<*>?
+}

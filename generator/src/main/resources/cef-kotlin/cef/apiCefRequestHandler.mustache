@@ -1,0 +1,11 @@
+package {{apiPackage}}.cef
+
+import org.cef.browser.CefBrowser
+import {{apiPackage}}.protocol.ApiRequest
+
+/**
+ * CEF Request Handler - Auto-generated from OpenAPI specification.
+ */
+interface ApiCefRequestHandler {
+    fun handleRequest(request: ApiRequest, browser: CefBrowser): Boolean
+}

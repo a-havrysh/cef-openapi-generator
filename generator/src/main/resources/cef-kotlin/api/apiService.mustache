@@ -1,0 +1,197 @@
+package {{package}}.service
+
+{{#imports}}
+import {{import}}
+{{/imports}}
+import {{apiPackage}}.protocol.ApiRequest
+import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.exception.NotImplementedException
+
+/**
+ * Service interface for {{classname}} operations.
+ *
+ * This interface follows a two-level architecture pattern that separates HTTP handling
+ * from business logic, providing flexibility in how you implement API endpoints.
+ *
+ * # Two-Level Architecture
+ * Each API operation is exposed through two methods:
+ * 1. **Wrapper Method (handleXxx):** High-level HTTP handler that returns ApiResponse.
+ *    Override this when you need full control over the HTTP response (status codes,
+ *    headers, content-type, etc.)
+ * 2. **Business Method (xxx):** Pure business logic that works with domain objects.
+ *    Override this for simple implementations where the default HTTP handling is sufficient.
+ *
+ * # Method Relationships
+ * ```
+ * handleXxx(request, browser, frame, cefRequest)  Wrapper method - HTTP layer
+ *     |
+ *     +-- Extracts parameters from request
+ *     |
+ *     v
+ * xxx(param1, param2, ...)                         Business method - Domain layer
+ *     |
+ *     +-- Pure business logic
+ *     |
+ *     v
+ * Returns domain object
+ * ```
+ *
+ * # Override Patterns
+ *
+ * ## Pattern 1: Simple Business Logic (Override Business Method)
+ * Use this pattern when default HTTP handling (200 OK with JSON) is sufficient:
+ * ```kotlin
+ * override fun getUser(userId: String): UserDto {
+ *     return userRepository.findById(userId)
+ *         ?: throw NotFoundException("User not found")
+ * }
+ * ```
+ *
+ * ## Pattern 2: Custom HTTP Response (Override Wrapper Method)
+ * Use this pattern when you need custom status codes, headers, or content-type:
+ * ```kotlin
+ * override fun handleDeleteUser(
+ *     userId: String,
+ *     request: ApiRequest,
+ *     browser: CefBrowser,
+ *     frame: CefFrame,
+ *     cefRequest: CefRequest
+ * ): ApiResponse<Void?> {
+ *     userRepository.deleteById(userId)
+ *     return ApiResponse.noContent()  // Returns 204 No Content
+ * }
+ * ```
+ *
+ * ## Pattern 3: Custom Response with Business Logic Reuse
+ * Use this pattern when you want to reuse business logic but customize the response:
+ * ```kotlin
+ * override fun handleCreateUser(
+ *     userDto: UserDto,
+ *     request: ApiRequest,
+ *     browser: CefBrowser,
+ *     frame: CefFrame,
+ *     cefRequest: CefRequest
+ * ): ApiResponse<UserDto> {
+ *     val user = createUser(userDto)
+ *     return ApiResponse.created(user)  // Returns 201 Created
+ *         .header("Location", "/users/${user.id}")
+ * }
+ *
+ * override fun createUser(userDto: UserDto): UserDto {
+ *     // Reusable business logic
+ *     return userRepository.save(userDto)
+ * }
+ * ```
+ *
+ * ## Pattern 4: Accessing CEF Objects
+ * Use wrapper method to access CEF browser/frame for advanced interactions:
+ * ```kotlin
+ * override fun handleNotifyUser(
+ *     message: String,
+ *     request: ApiRequest,
+ *     browser: CefBrowser,
+ *     frame: CefFrame,
+ *     cefRequest: CefRequest
+ * ): ApiResponse<Void?> {
+ *     // Execute JavaScript in the browser
+ *     browser.executeJavaScript("showNotification('$message')", "", 0)
+ *     return ApiResponse.ok(null)
+ * }
+ * ```
+ *
+ * # Default Behavior
+ * - All business methods throw `NotImplementedException` by default
+ * - All wrapper methods call the corresponding business method and wrap result in `ApiResponse.ok()`
+ * - You must override at least one method per operation to provide functionality
+ *
+ * # Best Practices
+ * - Override business methods for simple CRUD operations
+ * - Override wrapper methods when you need custom HTTP responses
+ * - Keep business methods pure and testable (no HTTP concerns)
+ * - Use wrapper methods for CEF browser interactions
+ * - Don't override both methods unless you need to reuse business logic with custom HTTP handling
+ *
+ * **Auto-generated:** This interface is generated from OpenAPI specification. Do not modify manually.
+ *
+ * @see ApiRequest
+ * @see ApiResponse
+ */
+interface {{classname}}Service {
+{{#operations}}
+{{#operation}}
+
+    /**
+     * Wrapper method: {{httpMethod}} {{path}}{{#summary}} - {{.}}{{/summary}}
+{{#notes}}
+     *
+     * {{.}}
+{{/notes}}
+     *
+     * Override this for custom ApiResponse (e.g., custom content-type, status code, headers).
+     * Default implementation calls business method and wraps result in ApiResponse.ok().
+     *
+{{#allParams}}
+     * @param {{paramName}} {{description}}{{#required}} (required){{/required}}{{^required}} (optional{{#defaultValue}}, default: {{.}}{{/defaultValue}}){{/required}}{{#vendorExtensions.x-min-length}} Min length: {{.}}{{/vendorExtensions.x-min-length}}{{#vendorExtensions.x-max-length}} Max length: {{.}}{{/vendorExtensions.x-max-length}}{{#vendorExtensions.x-minimum}} Min: {{.}}{{/vendorExtensions.x-minimum}}{{#vendorExtensions.x-maximum}} Max: {{.}}{{/vendorExtensions.x-maximum}}{{#vendorExtensions.x-pattern}} Pattern: {{.}}{{/vendorExtensions.x-pattern}}{{#vendorExtensions.x-has-enum-values}} Allowed values: {{{vendorExtensions.x-enum-values-string}}}{{/vendorExtensions.x-has-enum-values}}
+{{/allParams}}
+     * @param request API request with path variables, query params, headers, body
+     * @param browser CEF browser instance for JavaScript execution
+     * @param frame CEF frame instance
+     * @param cefRequest CEF request for accessing headers and metadata
+     * @return ApiResponse with HTTP status, headers, and body
+{{#responses}}
+{{#is2xx}}
+     * @throws ValidationException if parameters violate OpenAPI constraints
+{{/is2xx}}
+{{/responses}}
+     * @throws ApiException if API error occurs
+{{#isDeprecated}}
+     *
+     * @deprecated {{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated.{{/notes}}
+{{/isDeprecated}}
+     */
+{{#isDeprecated}}
+    @Deprecated("{{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated{{/notes}}")
+{{/isDeprecated}}
+    fun handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}, {{/allParams}}request: ApiRequest, browser: org.cef.browser.CefBrowser, frame: org.cef.browser.CefFrame, cefRequest: org.cef.network.CefRequest): ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void?{{/returnType}}> {
+        {{#allParams}}
+{{#defaultValue}}
+{{^required}}
+        val actual{{#lambda.titlecase}}{{paramName}}{{/lambda.titlecase}} = {{paramName}} ?: {{{defaultValue}}}{{#isLong}}L{{/isLong}}
+{{/required}}
+{{/defaultValue}}
+{{/allParams}}
+        val result = {{operationId}}({{#allParams}}{{#defaultValue}}{{^required}}actual{{#lambda.titlecase}}{{paramName}}{{/lambda.titlecase}}{{/required}}{{#required}}{{paramName}}{{/required}}{{/defaultValue}}{{^defaultValue}}{{paramName}}{{/defaultValue}}{{^-last}}, {{/-last}}{{/allParams}})
+        return ApiResponse.ok(result)
+    }
+
+    /**
+     * Business method: {{httpMethod}} {{path}}{{#summary}} - {{.}}{{/summary}}
+{{#notes}}
+     *
+     * {{.}}
+{{/notes}}
+     *
+     * Override this to implement business logic. This method is pure business logic,
+     * free from HTTP concerns.
+     *
+{{#allParams}}
+     * @param {{paramName}} {{description}}{{#required}} (required){{/required}}{{^required}} (optional{{#defaultValue}}, default: {{.}}{{/defaultValue}}){{/required}}{{#vendorExtensions.x-min-length}} Min length: {{.}}{{/vendorExtensions.x-min-length}}{{#vendorExtensions.x-max-length}} Max length: {{.}}{{/vendorExtensions.x-max-length}}{{#vendorExtensions.x-minimum}} Min: {{.}}{{/vendorExtensions.x-minimum}}{{#vendorExtensions.x-maximum}} Max: {{.}}{{/vendorExtensions.x-maximum}}{{#vendorExtensions.x-pattern}} Pattern: {{.}}{{/vendorExtensions.x-pattern}}{{#vendorExtensions.x-has-enum-values}} Allowed values: {{{vendorExtensions.x-enum-values-string}}}{{/vendorExtensions.x-has-enum-values}}
+{{/allParams}}
+{{#returnType}}
+     * @return {{.}}
+{{/returnType}}
+     * @throws NotImplementedException by default - override this method to provide implementation
+{{#isDeprecated}}
+     *
+     * @deprecated {{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated{{/notes}}
+{{/isDeprecated}}
+     */
+{{#isDeprecated}}
+    @Deprecated("{{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated{{/notes}}")
+{{/isDeprecated}}
+    fun {{operationId}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}{{^-last}}, {{/-last}}{{/allParams}}): {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void?{{/returnType}} {
+        throw NotImplementedException("{{operationId}} not implemented")
+    }
+{{/operation}}
+{{/operations}}
+}

@@ -1,0 +1,116 @@
+package {{apiPackage}}.protocol
+
+import java.io.ByteArrayInputStream
+import java.io.InputStream
+import java.nio.charset.StandardCharsets
+
+/**
+ * Represents a file uploaded via multipart/form-data.
+ *
+ * Contains file metadata (name, content type, size) and content as byte array.
+ *
+ * # Usage
+ * ```kotlin
+ * override fun handleUploadFile(
+ *     file: MultipartFile,
+ *     request: ApiRequest,
+ *     browser: CefBrowser,
+ *     frame: CefFrame,
+ *     cefRequest: CefRequest
+ * ): ApiResponse<UploadResponse> {
+ *     val filename = file.originalFilename
+ *     val contentType = file.contentType
+ *     val content = file.bytes
+ *     val size = file.size
+ *
+ *     // Process file...
+ *     return ApiResponse.ok(UploadResponse(filename, size))
+ * }
+ * ```
+ *
+ * Auto-generated from OpenAPI specification.
+ */
+data class MultipartFile(
+    /**
+     * Form field name
+     */
+    val name: String,
+
+    /**
+     * Original filename from client
+     */
+    val originalFilename: String,
+
+    /**
+     * MIME content type
+     */
+    val contentType: String,
+
+    /**
+     * File content as bytes
+     */
+    private val content: ByteArray = byteArrayOf()
+) {
+    /**
+     * Returns file content as byte array (copy of internal array).
+     *
+     * @return file bytes
+     */
+    val bytes: ByteArray
+        get() = content.copyOf()
+
+    /**
+     * Returns file content as input stream.
+     *
+     * @return stream over file content
+     */
+    fun getInputStream(): InputStream {
+        return ByteArrayInputStream(content)
+    }
+
+    /**
+     * Returns file size in bytes.
+     *
+     * @return size
+     */
+    val size: Long
+        get() = content.size.toLong()
+
+    /**
+     * Returns file content as string (for text files).
+     *
+     * @return content decoded as UTF-8
+     */
+    fun getContentAsString(): String {
+        return String(content, StandardCharsets.UTF_8)
+    }
+
+    /**
+     * Checks if file is empty.
+     *
+     * @return true if content is empty
+     */
+    fun isEmpty(): Boolean {
+        return content.isEmpty()
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is MultipartFile) return false
+
+        if (name != other.name) return false
+        if (originalFilename != other.originalFilename) return false
+        if (contentType != other.contentType) return false
+        if (!content.contentEquals(other.content)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = name.hashCode()
+        result = 31 * result + originalFilename.hashCode()
+        result = 31 * result + contentType.hashCode()
+        result = 31 * result + content.contentHashCode()
+        return result
+    }
+}

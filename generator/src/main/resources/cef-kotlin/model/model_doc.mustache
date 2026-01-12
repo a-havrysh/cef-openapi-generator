@@ -1,0 +1,16 @@
+# {{classname}}
+
+{{#description}}
+{{description}}
+
+{{/description}}
+{{#vars}}
+## Properties
+
+| Name | Type | Description | Notes |
+|------------|------|-------------|-------|
+{{#vars}}
+| **{{name}}** | **{{datatype}}** | {{description}} | {{#required}}required{{/required}}{{^required}}optional{{/required}} |
+{{/vars}}
+
+{{/vars}}

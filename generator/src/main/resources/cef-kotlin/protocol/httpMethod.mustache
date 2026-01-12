@@ -1,0 +1,89 @@
+package {{apiPackage}}.protocol
+
+/**
+ * Enumeration of standard HTTP request methods (verbs).
+ *
+ * This enum represents the most commonly used HTTP methods as defined in
+ * [RFC 7231](https://tools.ietf.org/html/rfc7231#section-4) and
+ * [RFC 5789](https://tools.ietf.org/html/rfc5789) (PATCH).
+ *
+ * HTTP methods indicate the desired action to be performed on a resource:
+ * - **GET** - Retrieve a resource (safe, idempotent, cacheable)
+ * - **POST** - Submit data to create or process a resource (not idempotent)
+ * - **PUT** - Replace or create a resource (idempotent)
+ * - **DELETE** - Remove a resource (idempotent)
+ * - **PATCH** - Partially modify a resource (not necessarily idempotent)
+ * - **HEAD** - Retrieve headers only, without body (safe, idempotent)
+ * - **OPTIONS** - Describe communication options for a resource (safe, idempotent)
+ *
+ * Auto-generated from OpenAPI specification.
+ *
+ * @see [HTTP Methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods)
+ */
+enum class HttpMethod {
+    /**
+     * GET method - requests a representation of the specified resource.
+     * GET requests should only retrieve data and have no other effect.
+     */
+    GET,
+
+    /**
+     * POST method - submits data to be processed to a specified resource.
+     * Often causes a change in state or side effects on the server.
+     */
+    POST,
+
+    /**
+     * PUT method - replaces all current representations of the target resource
+     * with the request payload.
+     */
+    PUT,
+
+    /**
+     * DELETE method - removes the specified resource.
+     */
+    DELETE,
+
+    /**
+     * PATCH method - applies partial modifications to a resource.
+     */
+    PATCH,
+
+    /**
+     * HEAD method - identical to GET but without the response body.
+     * Used to retrieve metadata about a resource.
+     */
+    HEAD,
+
+    /**
+     * OPTIONS method - describes the communication options for the target resource.
+     * Often used in CORS preflight requests.
+     */
+    OPTIONS;
+
+    companion object {
+        /**
+         * Converts a string representation of an HTTP method to its corresponding enum constant.
+         *
+         * The conversion is case-insensitive. If the input is `null`, the method
+         * returns [HttpMethod.GET] as a safe default.
+         *
+         * @param method the string representation of the HTTP method (e.g., "get", "POST", "Delete").
+         *               Can be null, in which case GET is returned.
+         * @return the corresponding [HttpMethod] enum constant
+         * @throws IllegalArgumentException if the string does not match any known HTTP method
+         *                                  (after converting to uppercase)
+         *
+         * @example
+         * ```
+         * HttpMethod.fromString("get")     // returns GET
+         * HttpMethod.fromString("POST")    // returns POST
+         * HttpMethod.fromString(null)      // returns GET
+         * HttpMethod.fromString("invalid") // throws IllegalArgumentException
+         * ```
+         */
+        fun fromString(method: String?): HttpMethod {
+            return if (method == null) GET else valueOf(method.uppercase())
+        }
+    }
+}

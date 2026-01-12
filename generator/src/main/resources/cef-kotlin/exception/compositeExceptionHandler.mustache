@@ -1,0 +1,14 @@
+package {{apiPackage}}.interceptor
+
+import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.exception.ApiException
+
+/**
+ * Composite exception handler that delegates to type-specific handlers.
+ * Auto-generated from OpenAPI specification.
+ */
+class CompositeExceptionHandler(private val handlers: Map<Class<*>, ExceptionHandler> = emptyMap()) : ExceptionHandler {
+    override fun handle(exception: Exception): ApiResponse<*>? {
+        return handlers[exception.javaClass]?.handle(exception)
+    }
+}

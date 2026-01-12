@@ -1,0 +1,193 @@
+package {{package}}.service;
+
+{{#imports}}
+import {{import}};
+{{/imports}}
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.protocol.ApiResponse;
+import {{apiPackage}}.exception.NotImplementedException;
+
+/**
+ * Service interface for {{classname}} operations.
+ *
+ * <p>This interface follows a two-level architecture pattern that separates HTTP handling
+ * from business logic, providing flexibility in how you implement API endpoints.</p>
+ *
+ * <h2>Two-Level Architecture</h2>
+ * <p>Each API operation is exposed through two methods:</p>
+ * <ol>
+ *   <li><b>Wrapper Method (handleXxx):</b> High-level HTTP handler that returns ApiResponse.
+ *       Override this when you need full control over the HTTP response (status codes,
+ *       headers, content-type, etc.)</li>
+ *   <li><b>Business Method (xxx):</b> Pure business logic that works with domain objects.
+ *       Override this for simple implementations where the default HTTP handling is sufficient.</li>
+ * </ol>
+ *
+ * <h2>Method Relationships</h2>
+ * <pre>
+ * handleXxx(ApiRequest)           Wrapper method - HTTP layer
+ *     |
+ *     +-- Extracts parameters from ApiRequest
+ *     |
+ *     v
+ * xxx(param1, param2, ...)        Business method - Domain layer
+ *     |
+ *     +-- Pure business logic
+ *     |
+ *     v
+ * Returns domain object
+ * </pre>
+ *
+ * <h2>Override Patterns</h2>
+ *
+ * <h3>Pattern 1: Simple Business Logic (Override Business Method)</h3>
+ * <p>Use this pattern when default HTTP handling (200 OK with JSON) is sufficient:</p>
+ * <pre>{@code
+ * @Override
+ * public UserDto getUser(String userId) {
+ *     return userRepository.findById(userId)
+ *         .orElseThrow(() -> new NotFoundException("User not found"));
+ * }
+ * }</pre>
+ *
+ * <h3>Pattern 2: Custom HTTP Response (Override Wrapper Method)</h3>
+ * <p>Use this pattern when you need custom status codes, headers, or content-type:</p>
+ * <pre>{@code
+ * @Override
+ * public ApiResponse<Void> handleDeleteUser(ApiRequest request) {
+ *     String userId = request.getPathVariable("userId");
+ *     userRepository.deleteById(userId);
+ *     return ApiResponse.noContent();  // Returns 204 No Content
+ * }
+ * }</pre>
+ *
+ * <h3>Pattern 3: Custom Response with Business Logic Reuse</h3>
+ * <p>Use this pattern when you want to reuse business logic but customize the response:</p>
+ * <pre>{@code
+ * @Override
+ * public ApiResponse<UserDto> handleCreateUser(ApiRequest request) {
+ *     UserDto user = createUser(request.getBody(UserDto.class));
+ *     return ApiResponse.created(user)  // Returns 201 Created
+ *         .withHeader("Location", "/users/" + user.getId());
+ * }
+ *
+ * @Override
+ * public UserDto createUser(UserDto userDto) {
+ *     // Reusable business logic
+ *     return userRepository.save(userDto);
+ * }
+ * }</pre>
+ *
+ * <h3>Pattern 4: Accessing CEF Objects</h3>
+ * <p>Use wrapper method to access CEF browser/frame for advanced interactions:</p>
+ * <pre>{@code
+ * @Override
+ * public ApiResponse<Void> handleNotifyUser(ApiRequest request) {
+ *     String message = request.getBody(String.class);
+ *
+ *     // Execute JavaScript in the browser
+ *     request.getCefBrowser().executeJavaScript(
+ *         "showNotification('" + message + "')", "", 0
+ *     );
+ *
+ *     return ApiResponse.ok();
+ * }
+ * }</pre>
+ *
+ * <h2>Default Behavior</h2>
+ * <ul>
+ *   <li>All business methods throw {@code NotImplementedException} by default</li>
+ *   <li>All wrapper methods call the corresponding business method and wrap result in {@code ApiResponse.ok()}</li>
+ *   <li>You must override at least one method per operation to provide functionality</li>
+ * </ul>
+ *
+ * <h2>Best Practices</h2>
+ * <ul>
+ *   <li>Override business methods for simple CRUD operations</li>
+ *   <li>Override wrapper methods when you need custom HTTP responses</li>
+ *   <li>Keep business methods pure and testable (no HTTP concerns)</li>
+ *   <li>Use wrapper methods for CEF browser interactions</li>
+ *   <li>Don't override both methods unless you need to reuse business logic with custom HTTP handling</li>
+ * </ul>
+ *
+ * <p><b>Auto-generated:</b> This interface is generated from OpenAPI specification. Do not modify manually.</p>
+ *
+ * @see ApiRequest
+ * @see ApiResponse
+ */
+public interface {{classname}}Service {
+{{#operations}}
+{{#operation}}
+
+    /**
+     * Wrapper method: {{httpMethod}} {{path}}{{#summary}} : {{.}}{{/summary}}
+{{#notes}}
+     *
+     * <p>{{.}}</p>
+{{/notes}}
+     *
+     * <p>Override this for custom ApiResponse (e.g., custom content-type, status code, headers).
+     * Default implementation calls business method and wraps result in ApiResponse.ok().</p>
+     *
+{{#allParams}}
+     * @param {{paramName}} {{description}}{{#required}} (required){{/required}}{{^required}} (optional{{#defaultValue}}, default: {{.}}{{/defaultValue}}){{/required}}{{#vendorExtensions.x-min-length}} Min length: {{.}}.{{/vendorExtensions.x-min-length}}{{#vendorExtensions.x-max-length}} Max length: {{.}}.{{/vendorExtensions.x-max-length}}{{#vendorExtensions.x-minimum}} Min: {{.}}.{{/vendorExtensions.x-minimum}}{{#vendorExtensions.x-maximum}} Max: {{.}}.{{/vendorExtensions.x-maximum}}{{#vendorExtensions.x-pattern}} Pattern: {{.}}.{{/vendorExtensions.x-pattern}}{{#vendorExtensions.x-has-enum-values}} Allowed values: {{{vendorExtensions.x-enum-values-string}}}.{{/vendorExtensions.x-has-enum-values}}
+{{/allParams}}
+     * @param browser CEF browser instance for JavaScript execution
+     * @param frame CEF frame instance
+     * @param cefRequest CEF request for accessing headers and metadata
+     * @return ApiResponse with HTTP status, headers, and body
+{{#responses}}
+{{#is2xx}}
+     * @throws ValidationException if parameters violate OpenAPI constraints
+{{/is2xx}}
+{{/responses}}
+     * @throws ApiException if API error occurs
+{{#isDeprecated}}
+     * @deprecated {{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated.{{/notes}} Please migrate to newer alternatives.
+{{/isDeprecated}}
+     */
+{{#isDeprecated}}
+    @Deprecated
+{{/isDeprecated}}
+    default ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}}> handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{#isPathParam}}String {{paramName}}{{/isPathParam}}{{#isQueryParam}}{{{dataType}}} {{paramName}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}} {{paramName}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}} {{paramName}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}} {{paramName}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}} {{paramName}}{{/isFormParam}}, {{/allParams}}org.cef.browser.CefBrowser browser, org.cef.browser.CefFrame frame, org.cef.network.CefRequest cefRequest) {
+{{#allParams}}
+{{#defaultValue}}
+{{^required}}
+        {{{dataType}}} actual{{#lambda.titlecase}}{{paramName}}{{/lambda.titlecase}} = {{paramName}} != null ? {{paramName}} : {{{defaultValue}}}{{#isLong}}L{{/isLong}};
+{{/required}}
+{{/defaultValue}}
+{{/allParams}}
+        {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} result = {{operationId}}({{#allParams}}{{#defaultValue}}{{^required}}actual{{#lambda.titlecase}}{{paramName}}{{/lambda.titlecase}}{{/required}}{{#required}}{{paramName}}{{/required}}{{/defaultValue}}{{^defaultValue}}{{paramName}}{{/defaultValue}}{{^-last}}, {{/-last}}{{/allParams}});
+        return ApiResponse.ok(result);
+    }
+
+    /**
+     * Business method: {{httpMethod}} {{path}}{{#summary}} : {{.}}{{/summary}}
+{{#notes}}
+     *
+     * <p>{{.}}</p>
+{{/notes}}
+     *
+     * <p>Override this to implement business logic. This method is pure business logic,
+     * free from HTTP concerns.</p>
+     *
+{{#allParams}}
+     * @param {{paramName}} {{description}}{{#required}} (required){{/required}}{{^required}} (optional{{#defaultValue}}, default: {{.}}{{/defaultValue}}){{/required}}{{#vendorExtensions.x-min-length}} Min length: {{.}}.{{/vendorExtensions.x-min-length}}{{#vendorExtensions.x-max-length}} Max length: {{.}}.{{/vendorExtensions.x-max-length}}{{#vendorExtensions.x-minimum}} Min: {{.}}.{{/vendorExtensions.x-minimum}}{{#vendorExtensions.x-maximum}} Max: {{.}}.{{/vendorExtensions.x-maximum}}{{#vendorExtensions.x-pattern}} Pattern: {{.}}.{{/vendorExtensions.x-pattern}}{{#vendorExtensions.x-has-enum-values}} Allowed values: {{{vendorExtensions.x-enum-values-string}}}.{{/vendorExtensions.x-has-enum-values}}
+{{/allParams}}
+{{#returnType}}
+     * @return {{.}}
+{{/returnType}}
+     * @throws NotImplementedException by default - override this method to provide implementation
+{{#isDeprecated}}
+     * @deprecated {{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated.{{/notes}} Please migrate to newer alternatives.
+{{/isDeprecated}}
+     */
+{{#isDeprecated}}
+    @Deprecated
+{{/isDeprecated}}
+    default {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} {{operationId}}({{#allParams}}{{#isPathParam}}String {{paramName}}{{/isPathParam}}{{#isQueryParam}}{{{dataType}}} {{paramName}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}} {{paramName}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}} {{paramName}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}} {{paramName}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}} {{paramName}}{{/isFormParam}}{{^-last}}, {{/-last}}{{/allParams}}) {
+        throw new NotImplementedException("{{operationId}} not implemented");
+    }
+{{/operation}}
+{{/operations}}
+}

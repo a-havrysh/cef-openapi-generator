@@ -1,0 +1,242 @@
+package {{apiPackage}}.validation
+
+import {{apiPackage}}.exception.ValidationException.ValidationError
+import java.util.regex.Pattern
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Utility class for validating request parameters against OpenAPI constraints.
+ *
+ * Provides thread-safe, stateless validation methods for different parameter types.
+ * All methods return a list of [ValidationError] objects, allowing collection
+ * of all validation failures before throwing an exception.
+ *
+ * Supported validations:
+ * - String constraints: required, minLength, maxLength, pattern (regex), enum
+ * - Integer constraints: required, minimum, maximum
+ * - Number constraints: required, minimum, maximum
+ *
+ * Performance optimizations:
+ * - Regex patterns are compiled once and cached in a thread-safe map
+ * - All methods are static (in companion object) to avoid object allocation overhead
+ *
+ * Auto-generated from OpenAPI specification.
+ *
+ * @see ValidationError
+ */
+object ParameterValidator {
+
+    // Cache for compiled regex patterns (thread-safe)
+    private val PATTERN_CACHE = ConcurrentHashMap<String, Pattern>()
+
+    /**
+     * Validates a string parameter against OpenAPI constraints.
+     *
+     * Validation order:
+     * 1. Required check - if fails, returns immediately
+     * 2. Skip all other validations if value is null (optional parameter)
+     * 3. MinLength, MaxLength, Pattern, Enum validations (all failures collected)
+     *
+     * @param paramName parameter name for error messages
+     * @param value parameter value to validate (may be null)
+     * @param required whether parameter is required
+     * @param minLength minimum string length (null if no constraint)
+     * @param maxLength maximum string length (null if no constraint)
+     * @param pattern regex pattern (null if no constraint)
+     * @param enumValues allowed values (null if no constraint)
+     * @return list of validation errors (empty if valid)
+     */
+    fun validateString(
+        paramName: String,
+        value: String?,
+        required: Boolean,
+        minLength: Int? = null,
+        maxLength: Int? = null,
+        pattern: String? = null,
+        enumValues: List<String>? = null
+    ): List<ValidationError> {
+        val errors = mutableListOf<ValidationError>()
+
+        // Required check
+        if (required && (value == null || value.isEmpty())) {
+            errors.add(ValidationError(paramName, value, "required", "$paramName is required"))
+            return errors // Don't validate other constraints if missing
+        }
+
+        // Skip other validations if value is null (optional parameter)
+        if (value == null) {
+            return errors
+        }
+
+        // MinLength
+        if (minLength != null && value.length < minLength) {
+            errors.add(ValidationError(
+                paramName, value, "minLength",
+                "$paramName must be at least $minLength characters (got ${value.length})"
+            ))
+        }
+
+        // MaxLength
+        if (maxLength != null && value.length > maxLength) {
+            errors.add(ValidationError(
+                paramName, value, "maxLength",
+                "$paramName must be at most $maxLength characters (got ${value.length})"
+            ))
+        }
+
+        // Pattern
+        if (pattern != null) {
+            val compiledPattern = PATTERN_CACHE.computeIfAbsent(pattern) { Pattern.compile(it) }
+            if (!compiledPattern.matcher(value).matches()) {
+                errors.add(ValidationError(
+                    paramName, value, "pattern",
+                    "$paramName must match pattern: $pattern"
+                ))
+            }
+        }
+
+        // Enum
+        if (enumValues != null && enumValues.isNotEmpty() && !enumValues.contains(value)) {
+            errors.add(ValidationError(
+                paramName, value, "enum",
+                "$paramName must be one of: ${enumValues.joinToString(", ")}"
+            ))
+        }
+
+        return errors
+    }
+
+    /**
+     * Validates an integer parameter against OpenAPI constraints.
+     *
+     * @param paramName parameter name for error messages
+     * @param value parameter value to validate (may be null)
+     * @param required whether parameter is required
+     * @param minimum minimum numeric value (null if no constraint)
+     * @param maximum maximum numeric value (null if no constraint)
+     * @return list of validation errors (empty if valid)
+     */
+    fun validateInteger(
+        paramName: String,
+        value: Int?,
+        required: Boolean,
+        minimum: Int? = null,
+        maximum: Int? = null
+    ): List<ValidationError> {
+        val errors = mutableListOf<ValidationError>()
+
+        if (required && value == null) {
+            errors.add(ValidationError(paramName, null, "required", "$paramName is required"))
+            return errors
+        }
+
+        if (value == null) {
+            return errors
+        }
+
+        if (minimum != null && value < minimum) {
+            errors.add(ValidationError(
+                paramName, value, "minimum",
+                "$paramName must be at least $minimum (got $value)"
+            ))
+        }
+
+        if (maximum != null && value > maximum) {
+            errors.add(ValidationError(
+                paramName, value, "maximum",
+                "$paramName must be at most $maximum (got $value)"
+            ))
+        }
+
+        return errors
+    }
+
+    /**
+     * Validates a number (double/float) parameter against OpenAPI constraints.
+     *
+     * @param paramName parameter name for error messages
+     * @param value parameter value to validate (may be null)
+     * @param required whether parameter is required
+     * @param minimum minimum numeric value (null if no constraint)
+     * @param maximum maximum numeric value (null if no constraint)
+     * @return list of validation errors (empty if valid)
+     */
+    fun validateNumber(
+        paramName: String,
+        value: Number?,
+        required: Boolean,
+        minimum: Number? = null,
+        maximum: Number? = null
+    ): List<ValidationError> {
+        val errors = mutableListOf<ValidationError>()
+
+        if (required && value == null) {
+            errors.add(ValidationError(paramName, null, "required", "$paramName is required"))
+            return errors
+        }
+
+        if (value == null) {
+            return errors
+        }
+
+        val doubleValue = value.toDouble()
+
+        if (minimum != null && doubleValue < minimum.toDouble()) {
+            errors.add(ValidationError(
+                paramName, value, "minimum",
+                "$paramName must be at least $minimum (got $value)"
+            ))
+        }
+
+        if (maximum != null && doubleValue > maximum.toDouble()) {
+            errors.add(ValidationError(
+                paramName, value, "maximum",
+                "$paramName must be at most $maximum (got $value)"
+            ))
+        }
+
+        return errors
+    }
+
+    /**
+     * Parses a string to integer and validates constraints in one step.
+     * Used for query parameters which are extracted as strings.
+     *
+     * @param paramName parameter name for error messages
+     * @param stringValue string value to parse and validate
+     * @param required whether parameter is required
+     * @param minimum minimum numeric value (null if no constraint)
+     * @param maximum maximum numeric value (null if no constraint)
+     * @return list of validation errors (empty if valid)
+     */
+    fun validateAndParseInteger(
+        paramName: String,
+        stringValue: String?,
+        required: Boolean,
+        minimum: Int? = null,
+        maximum: Int? = null
+    ): List<ValidationError> {
+        val errors = mutableListOf<ValidationError>()
+
+        if (required && (stringValue == null || stringValue.isEmpty())) {
+            errors.add(ValidationError(paramName, stringValue, "required", "$paramName is required"))
+            return errors
+        }
+
+        if (stringValue == null || stringValue.isEmpty()) {
+            return errors
+        }
+
+        val value = try {
+            stringValue.toInt()
+        } catch (e: NumberFormatException) {
+            errors.add(ValidationError(
+                paramName, stringValue, "type",
+                "$paramName must be a valid integer"
+            ))
+            return errors
+        }
+
+        return validateInteger(paramName, value, false, minimum, maximum)
+    }
+}

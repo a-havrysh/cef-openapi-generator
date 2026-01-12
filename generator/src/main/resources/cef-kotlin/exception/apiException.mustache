@@ -1,0 +1,55 @@
+package {{apiPackage}}.exception
+
+/**
+ * Base exception class for API layer operations.
+ *
+ * This class serves as the foundation for all HTTP-related exceptions in the API layer.
+ * It associates an HTTP status code with the exception, enabling proper error response
+ * generation in RESTful services.
+ *
+ * Subclasses should extend this class to represent specific HTTP error scenarios
+ * (e.g., 400 Bad Request, 404 Not Found, 500 Internal Server Error).
+ *
+ * Auto-generated from OpenAPI specification.
+ *
+ * @see BadRequestException
+ * @see NotFoundException
+ * @see InternalServerErrorException
+ */
+open class ApiException(
+    val statusCode: Int,
+    message: String,
+    cause: Throwable? = null
+) : RuntimeException(message, cause) {
+    companion object {
+        /**
+         * Creates a BadRequestException (HTTP 400).
+         *
+         * @param message the error message
+         * @return new BadRequestException
+         */
+        fun badRequest(message: String): ApiException {
+            return BadRequestException(message)
+        }
+
+        /**
+         * Creates a NotFoundException (HTTP 404).
+         *
+         * @param message the error message
+         * @return new NotFoundException
+         */
+        fun notFound(message: String): ApiException {
+            return NotFoundException(message)
+        }
+
+        /**
+         * Creates an InternalServerErrorException (HTTP 500).
+         *
+         * @param message the error message
+         * @return new InternalServerErrorException
+         */
+        fun internalError(message: String): ApiException {
+            return InternalServerErrorException(message)
+        }
+    }
+}

@@ -1,0 +1,32 @@
+package {{package}}
+
+import com.fasterxml.jackson.annotation.JsonProperty
+{{#imports}}
+import {{import}}
+{{/imports}}
+
+/**
+ * {{classname}}{{#description}} - {{{.}}}{{/description}}
+ * Auto-generated from OpenAPI specification.
+ */
+{{#models}}
+{{#model}}
+{{#isEnum}}
+enum class {{classname}} {
+{{#allowableValues}}
+{{#enumVars}}
+    {{name}}{{^-last}},{{/-last}}
+{{/enumVars}}
+{{/allowableValues}}
+}
+{{/isEnum}}
+{{^isEnum}}
+data class {{classname}}(
+{{#vars}}
+    @JsonProperty("{{baseName}}")
+    val {{name}}: {{{dataType}}}{{#isContainer}}{{#isMap}} = emptyMap(){{/isMap}}{{^isMap}} = emptyList(){{/isMap}}{{/isContainer}}{{^isContainer}}{{#isNullable}}?{{/isNullable}}{{/isContainer}}{{^-last}},{{/-last}}
+{{/vars}}
+)
+{{/isEnum}}
+{{/model}}
+{{/models}}

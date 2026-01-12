@@ -1,0 +1,100 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.protocol.ApiResponse;
+import {{apiPackage}}.exception.ApiException;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
+
+/**
+ * Basic HTTP authentication interceptor.
+ *
+ * <p>Validates username and password from Authorization header (Basic auth).
+ *
+ * <h2>Usage</h2>
+ * <pre>{@code
+ * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+ *     .withApiRoutes()
+ *     .withInterceptor(new BasicAuthInterceptor(this::validateCredentials))
+ *     .build();
+ *
+ * private boolean validateCredentials(String username, String password) {
+ *     return userService.authenticate(username, password);
+ * }
+ * }</pre>
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ */
+public final class BasicAuthInterceptor implements RequestInterceptor {
+
+    private final CredentialsValidator validator;
+
+    /**
+     * Creates Basic authentication interceptor.
+     *
+     * @param validator function to validate username and password
+     */
+    public BasicAuthInterceptor(CredentialsValidator validator) {
+        this.validator = validator;
+    }
+
+    @Override
+    public void beforeHandle(ApiRequest request) throws Exception {
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || authHeader.isEmpty()) {
+            throw new ApiException(401, "Authorization header required");
+        }
+
+        if (!authHeader.startsWith("Basic ")) {
+            throw new ApiException(401, "Invalid authorization header format. Expected: Basic <credentials>");
+        }
+
+        String base64Credentials = authHeader.substring(6).trim();
+
+        if (base64Credentials.isEmpty()) {
+            throw new ApiException(401, "Basic credentials required");
+        }
+
+        String[] credentials = decodeCredentials(base64Credentials);
+        if (credentials == null) {
+            throw new ApiException(401, "Invalid Basic auth credentials encoding");
+        }
+
+        String username = credentials[0];
+        String password = credentials[1];
+
+        if (!validator.validate(username, password)) {
+            throw new ApiException(403, "Invalid username or password");
+        }
+    }
+
+    private String[] decodeCredentials(String base64Credentials) {
+        try {
+            byte[] decodedBytes = Base64.getDecoder().decode(base64Credentials);
+            String decoded = new String(decodedBytes, StandardCharsets.UTF_8);
+            String[] parts = decoded.split(":", 2);
+            if (parts.length == 2) {
+                return parts;
+            }
+            return null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Functional interface for credentials validation.
+     */
+    @FunctionalInterface
+    public interface CredentialsValidator {
+        /**
+         * Validates username and password.
+         *
+         * @param username the username
+         * @param password the password
+         * @return true if valid, false otherwise
+         */
+        boolean validate(String username, String password);
+    }
+}

@@ -1,0 +1,161 @@
+package {{apiPackage}}.protocol
+
+/**
+ * Generic API response wrapper (like Spring ResponseEntity).
+ * Encapsulates response body, content type, status code, and headers.
+ * Auto-generated from OpenAPI specification.
+ *
+ * @param T type of response body
+ */
+class ApiResponse<T>(
+    private val body: T,
+    private val contentType: String,
+    private val statusCode: Int,
+    private val headers: Map<String, String>
+) {
+    companion object {
+        /**
+         * Create successful response with JSON content type.
+         *
+         * @param body response body
+         * @param T  type of body
+         * @return ApiResponse with 200 status
+         */
+        fun <T> ok(body: T): ApiResponse<T> {
+            return ApiResponse(body, "application/json", 200, emptyMap())
+        }
+
+        /**
+         * Create successful response with custom content type.
+         *
+         * @param body        response body
+         * @param contentType MIME type
+         * @param T         type of body
+         * @return ApiResponse with 200 status
+         */
+        fun <T> ok(body: T, contentType: String): ApiResponse<T> {
+            return ApiResponse(body, contentType, 200, emptyMap())
+        }
+
+        /**
+         * Create 204 No Content response.
+         *
+         * @return ApiResponse with no body
+         */
+        fun noContent(): ApiResponse<Void?> {
+            return ApiResponse(null, "text/plain", 204, emptyMap())
+        }
+
+        /**
+         * Create response with custom status code.
+         *
+         * @param statusCode HTTP status code
+         * @param body       response body
+         * @param T        type of body
+         * @return ApiResponse with specified status
+         */
+        fun <T> status(statusCode: Int, body: T): ApiResponse<T> {
+            return ApiResponse(body, "application/json", statusCode, emptyMap())
+        }
+
+        /**
+         * Create 201 Created response.
+         *
+         * @param body response body
+         * @param T  type of body
+         * @return ApiResponse with 201 status
+         */
+        fun <T> created(body: T): ApiResponse<T> {
+            return ApiResponse(body, "application/json", 201, emptyMap())
+        }
+
+        /**
+         * Create 404 Not Found response.
+         *
+         * @param message error message
+         * @return ApiResponse with 404 status
+         */
+        fun notFound(message: String): ApiResponse<String> {
+            return ApiResponse(message, "application/json", 404, emptyMap())
+        }
+
+        /**
+         * Create 400 Bad Request response.
+         *
+         * @param message error message
+         * @return ApiResponse with 400 status
+         */
+        fun badRequest(message: String): ApiResponse<String> {
+            return ApiResponse(message, "application/json", 400, emptyMap())
+        }
+
+        /**
+         * Create 500 Internal Server Error response.
+         *
+         * @param message error message
+         * @return ApiResponse with 500 status
+         */
+        fun internalServerError(message: String): ApiResponse<String> {
+            return ApiResponse(message, "application/json", 500, emptyMap())
+        }
+    }
+
+    /**
+     * Set custom content type (builder pattern).
+     *
+     * @param contentType MIME type
+     * @return new ApiResponse with updated content type
+     */
+    fun contentType(contentType: String): ApiResponse<T> {
+        return ApiResponse(body, contentType, statusCode, headers)
+    }
+
+    /**
+     * Add custom header (builder pattern).
+     *
+     * @param name  header name
+     * @param value header value
+     * @return new ApiResponse with added header
+     */
+    fun header(name: String, value: String): ApiResponse<T> {
+        val newHeaders = headers.toMutableMap()
+        newHeaders[name] = value
+        return ApiResponse(body, contentType, statusCode, newHeaders)
+    }
+
+    /**
+     * Get response body.
+     *
+     * @return body object
+     */
+    fun getBody(): T {
+        return body
+    }
+
+    /**
+     * Get content type.
+     *
+     * @return MIME type string
+     */
+    fun getContentType(): String {
+        return contentType
+    }
+
+    /**
+     * Get HTTP status code.
+     *
+     * @return status code (e.g., 200, 404, 500)
+     */
+    fun getStatusCode(): Int {
+        return statusCode
+    }
+
+    /**
+     * Get custom headers.
+     *
+     * @return map of header name to value
+     */
+    fun getHeaders(): Map<String, String> {
+        return headers
+    }
+}

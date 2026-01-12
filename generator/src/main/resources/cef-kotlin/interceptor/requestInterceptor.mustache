@@ -1,0 +1,99 @@
+package {{apiPackage}}.interceptor
+
+import {{apiPackage}}.protocol.ApiRequest
+import {{apiPackage}}.protocol.ApiResponse
+
+/**
+ * Interceptor for request/response processing.
+ * Allows pre/post processing of all API requests for cross-cutting concerns.
+ *
+ * Use cases:
+ * - Logging - log all requests and responses
+ * - Metrics - track request count, duration, errors
+ * - Authentication - validate tokens, sessions
+ * - Authorization - check permissions
+ * - Request ID tracking - correlation across logs
+ * - Rate limiting - throttle excessive requests
+ *
+ * Execution order:
+ * ```
+ * 1. beforeHandle() called before route handler
+ * 2. Route handler executes
+ * 3. afterHandle() called after successful handling
+ * 4. onError() called if exception occurs
+ * ```
+ *
+ * Example implementation:
+ * ```kotlin
+ * class LoggingInterceptor : RequestInterceptor {
+ *     override fun beforeHandle(request: ApiRequest) {
+ *         println("Request: ${request.getMethod()} ${request.getPath()}")
+ *         val userId = request.getPathVariable("userId")  // Access path variables from request
+ *     }
+ *
+ *     override fun afterHandle(response: ApiResponse<*>, durationMs: Long) {
+ *         println("Response: ${response.getStatusCode()} (${durationMs}ms)")
+ *     }
+ *
+ *     override fun onError(exception: Exception, request: ApiRequest) {
+ *         System.err.println("Error handling ${request.getPath()}: ${exception.message}")
+ *     }
+ * }
+ * ```
+ *
+ * Register interceptor in builder:
+ * ```kotlin
+ * val handler = ApiCefRequestHandler.builder(project)
+ *     .withApiRoutes()
+ *     .withInterceptor(LoggingInterceptor())
+ *     .withInterceptor(MetricsInterceptor())
+ *     .build()
+ * ```
+ *
+ * **Thread Safety:** Interceptors must be thread-safe as they may be called
+ * from multiple threads simultaneously.
+ *
+ * @see ApiResponse
+ */
+interface RequestInterceptor {
+
+    /**
+     * Called before route handler execution.
+     * Can be used for logging, authentication, request modification, validation.
+     *
+     * **Breaking Change (v2.0.0):** Changed from CefRequest to ApiRequest to provide
+     * better access to query parameters, headers, and request body. Removed pathVariables
+     * parameter - use request.getPathVariable(name) instead.
+     *
+     * @param request API request being processed (with access to query params, headers, body, path variables)
+     * @throws Exception to abort request processing and return error response
+     */
+    @Throws(Exception::class)
+    fun beforeHandle(request: ApiRequest) {
+        // Default: no-op
+    }
+
+    /**
+     * Called after successful route handler execution.
+     * Can be used for logging, metrics, response modification.
+     *
+     * @param response   generated API response
+     * @param durationMs request processing duration in milliseconds
+     */
+    fun afterHandle(response: ApiResponse<*>, durationMs: Long) {
+        // Default: no-op
+    }
+
+    /**
+     * Called when exception occurs during request processing.
+     * Can be used for error logging, metrics, alerting.
+     *
+     * **Breaking Change (v2.0.0):** Changed from CefRequest to ApiRequest.
+     *
+     * @param exception exception that occurred
+     * @param request   API request that caused the exception
+     */
+    fun onError(exception: Exception, request: ApiRequest) {
+        // Default: no-op
+    }
+}

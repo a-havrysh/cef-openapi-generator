@@ -1,0 +1,225 @@
+package {{apiPackage}}.routing
+
+import {{apiPackage}}.protocol.HttpMethod
+import {{apiPackage}}.protocol.ApiRequest
+import {{apiPackage}}.protocol.ApiResponse
+import java.util.LinkedHashMap
+
+/**
+ * Extended Trie-based route matcher with caching support.
+ * Implements a hybrid routing strategy combining Trie traversal for pattern routes
+ * and direct lookup for simple routes (prefix, exact, contains).
+ * Auto-generated from OpenAPI specification.
+ *
+ * Routing strategies (in order of precedence):
+ * 1. Pattern routes (with path variables) - cached, uses Trie structure
+ * 2. Exact simple routes - not cached, direct lookup
+ * 3. Prefix routes - not cached, sequential matching
+ * 4. Contains routes - not cached, sequential matching
+ *
+ * Cache behavior:
+ * - Only pattern routes are cached (LRU cache with 100 entries)
+ * - Cache key format: "METHOD:path"
+ * - Cache stores both handler and extracted path variables
+ *
+ * Example usage:
+ * ```kotlin
+ * val tree = RouteTree()
+ * tree.addRoute("/api/users/{id}", HttpMethod.GET) { request ->
+ *     val userId = request.getPathVariables()["id"]
+ *     ApiResponse.ok(userService.getUser(userId))
+ * }
+ *
+ * val result = tree.match("/api/users/123", HttpMethod.GET)
+ * if (result != null) {
+ *     val response = result.handler(request)
+ *     val userId = result.pathVariables["id"]  // "123"
+ * }
+ * ```
+ */
+class RouteTree {
+
+    /**
+     * Exact routes map for pattern routes (containing path variables).
+     * Key: full path pattern, Value: method-to-handler map.
+     */
+    private val exactRoutes: MutableMap<String, MutableMap<HttpMethod, (ApiRequest) -> ApiResponse<*>>> = mutableMapOf()
+
+    /**
+     * Root node of the Trie structure for pattern matching.
+     */
+    private val root = RouteNode("")
+
+    /**
+     * LRU cache for matched pattern routes.
+     * Automatically evicts eldest entry when size exceeds 100.
+     */
+    private val matchCache: MutableMap<String, CacheEntry> = object : LinkedHashMap<String, CacheEntry>(100, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CacheEntry>?): Boolean {
+            return size > 100
+        }
+    }
+
+    /**
+     * Prefix-based routes for paths that start with a specific prefix.
+     * Not cached to avoid cache pollution.
+     * Map structure: prefix -> HTTP method -> handler
+     */
+    private val prefixRoutes: MutableMap<String, MutableMap<HttpMethod, (ApiRequest) -> ApiResponse<*>>> = mutableMapOf()
+
+    /**
+     * Exact match routes for simple paths without variables.
+     * Not cached due to O(1) lookup performance.
+     * Map structure: path -> HTTP method -> handler
+     */
+    private val exactSimpleRoutes: MutableMap<String, MutableMap<HttpMethod, (ApiRequest) -> ApiResponse<*>>> = mutableMapOf()
+
+    /**
+     * Substring-based routes for paths containing a specific substring.
+     * Not cached to avoid cache pollution.
+     * Map structure: substring -> HTTP method -> handler
+     */
+    private val containsRoutes: MutableMap<String, MutableMap<HttpMethod, (ApiRequest) -> ApiResponse<*>>> = mutableMapOf()
+
+    /**
+     * Fallback handlers for unmatched routes, keyed by HTTP method.
+     * Allows different fallback behavior for different HTTP methods.
+     */
+    private val fallbackHandlers: MutableMap<HttpMethod, (ApiRequest) -> ApiResponse<*>> = mutableMapOf()
+
+    /**
+     * Add a route pattern with path variables to the tree.
+     * If pattern contains template variables (e.g., {id}), it's stored in the Trie.
+     * Simple patterns without variables are stored in exactSimpleRoutes for faster O(1) lookup.
+     *
+     * @param pattern path pattern (e.g., "/api/users/{id}", "/api/users")
+     * @param method HTTP method
+     * @param handler request handler function
+     */
+    fun addRoute(pattern: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>) {
+        when {
+            pattern.contains("{") -> {
+                // Pattern route - store in Trie and exactRoutes for reference
+                exactRoutes.computeIfAbsent(pattern) { mutableMapOf() }[method] = handler
+                root.addRoute(pattern, method, handler)
+            }
+            else -> {
+                // Simple exact route - store for O(1) lookup
+                exactSimpleRoutes.computeIfAbsent(pattern) { mutableMapOf() }[method] = handler
+            }
+        }
+    }
+
+    /**
+     * Add a prefix-based route.
+     * Matches any path that starts with the specified prefix.
+     *
+     * @param prefix the path prefix (e.g., "/api/")
+     * @param method HTTP method
+     * @param handler request handler function
+     */
+    fun addPrefixRoute(prefix: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>) {
+        prefixRoutes.computeIfAbsent(prefix) { mutableMapOf() }[method] = handler
+    }
+
+    /**
+     * Add a substring-based route.
+     * Matches any path containing the specified substring.
+     *
+     * @param substring the substring to match
+     * @param method HTTP method
+     * @param handler request handler function
+     */
+    fun addContainsRoute(substring: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>) {
+        containsRoutes.computeIfAbsent(substring) { mutableMapOf() }[method] = handler
+    }
+
+    /**
+     * Set a fallback handler for unmatched routes.
+     *
+     * @param method HTTP method
+     * @param handler fallback handler
+     */
+    fun setFallbackHandler(method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>) {
+        fallbackHandlers[method] = handler
+    }
+
+    /**
+     * Match a path against registered routes.
+     *
+     * @param path request path
+     * @param method HTTP method
+     * @return MatchResult with handler and path variables, or null if no match
+     */
+    fun match(path: String, method: HttpMethod): MatchResult? {
+        val cacheKey = "$method:$path"
+
+        // Check cache first for pattern routes
+        matchCache[cacheKey]?.let { cached ->
+            return MatchResult(cached.handler, cached.pathVariables)
+        }
+
+        // Try exact simple routes first (O(1) lookup)
+        exactSimpleRoutes[path]?.get(method)?.let { handler ->
+            return MatchResult(handler, emptyMap())
+        }
+
+        // Try pattern routes using Trie
+        root.match(path, method)?.let { result ->
+            matchCache[cacheKey] = CacheEntry(result.handler, result.pathVariables)
+            return result
+        }
+
+        // Try prefix routes
+        for ((prefix, methods) in prefixRoutes) {
+            if (path.startsWith(prefix)) {
+                methods[method]?.let { handler ->
+                    return MatchResult(handler, emptyMap())
+                }
+            }
+        }
+
+        // Try contains routes
+        for ((substring, methods) in containsRoutes) {
+            if (path.contains(substring)) {
+                methods[method]?.let { handler ->
+                    return MatchResult(handler, emptyMap())
+                }
+            }
+        }
+
+        // Try fallback handler
+        fallbackHandlers[method]?.let { handler ->
+            return MatchResult(handler, emptyMap())
+        }
+
+        return null
+    }
+
+    /**
+     * Clear the routing cache.
+     * Call this if route definitions change at runtime.
+     */
+    fun clearCache() {
+        matchCache.clear()
+    }
+
+    /**
+     * Result of a successful route match.
+     *
+     * @property handler the request handler function
+     * @property pathVariables extracted path variables (e.g., {"id" -> "123"})
+     */
+    data class MatchResult(
+        val handler: (ApiRequest) -> ApiResponse<*>,
+        val pathVariables: Map<String, String>
+    )
+
+    /**
+     * Cache entry for route matching results.
+     */
+    private data class CacheEntry(
+        val handler: (ApiRequest) -> ApiResponse<*>,
+        val pathVariables: Map<String, String>
+    )
+}

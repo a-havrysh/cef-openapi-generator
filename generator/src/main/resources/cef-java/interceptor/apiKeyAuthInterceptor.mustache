@@ -1,0 +1,111 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.protocol.ApiRequest;
+import {{apiPackage}}.protocol.ApiResponse;
+import {{apiPackage}}.exception.ApiException;
+
+/**
+ * API Key authentication interceptor.
+ *
+ * <p>Validates API key from header, query parameter, or cookie based on OpenAPI security scheme.
+ *
+ * <h2>Usage</h2>
+ * <pre>{@code
+ * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+ *     .withApiRoutes()
+ *     .withInterceptor(new ApiKeyAuthInterceptor("X-API-Key", ApiKeyLocation.HEADER, this::validateApiKey))
+ *     .build();
+ *
+ * private boolean validateApiKey(String apiKey) {
+ *     return "secret-key-123".equals(apiKey);
+ * }
+ * }</pre>
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ */
+public final class ApiKeyAuthInterceptor implements RequestInterceptor {
+
+    private final String paramName;
+    private final ApiKeyLocation location;
+    private final ApiKeyValidator validator;
+
+    /**
+     * Creates API key authentication interceptor.
+     *
+     * @param paramName name of parameter containing API key (e.g., "X-API-Key", "api_key")
+     * @param location where to look for API key (header, query, or cookie)
+     * @param validator function to validate the API key
+     */
+    public ApiKeyAuthInterceptor(String paramName, ApiKeyLocation location, ApiKeyValidator validator) {
+        this.paramName = paramName;
+        this.location = location;
+        this.validator = validator;
+    }
+
+    @Override
+    public void beforeHandle(ApiRequest request) throws Exception {
+        String apiKey = extractApiKey(request);
+
+        if (apiKey == null || apiKey.isEmpty()) {
+            throw new ApiException(401, "API key required");
+        }
+
+        if (!validator.validate(apiKey)) {
+            throw new ApiException(403, "Invalid API key");
+        }
+    }
+
+    private String extractApiKey(ApiRequest request) {
+        switch (location) {
+            case HEADER:
+                return request.getHeader(paramName);
+            case QUERY:
+                return request.getQueryParam(paramName);
+            case COOKIE:
+                String cookieHeader = request.getHeader("Cookie");
+                if (cookieHeader != null) {
+                    return extractCookie(cookieHeader, paramName);
+                }
+                return null;
+            default:
+                return null;
+        }
+    }
+
+    private String extractCookie(String cookieHeader, String cookieName) {
+        String[] cookies = cookieHeader.split(";");
+        for (String cookie : cookies) {
+            String[] parts = cookie.trim().split("=", 2);
+            if (parts.length == 2 && parts[0].equals(cookieName)) {
+                return parts[1];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * API key location in request.
+     */
+    public enum ApiKeyLocation {
+        /** API key in HTTP header */
+        HEADER,
+        /** API key in query parameter */
+        QUERY,
+        /** API key in cookie */
+        COOKIE
+    }
+
+    /**
+     * Functional interface for API key validation.
+     */
+    @FunctionalInterface
+    public interface ApiKeyValidator {
+        /**
+         * Validates the API key.
+         *
+         * @param apiKey the API key to validate
+         * @return true if valid, false otherwise
+         */
+        boolean validate(String apiKey);
+    }
+}

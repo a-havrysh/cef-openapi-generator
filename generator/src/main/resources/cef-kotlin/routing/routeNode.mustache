@@ -1,0 +1,153 @@
+package {{apiPackage}}.routing
+
+import {{apiPackage}}.protocol.HttpMethod
+import {{apiPackage}}.protocol.ApiRequest
+import {{apiPackage}}.protocol.ApiResponse
+
+/**
+ * Node in the Trie-based route tree structure.
+ * Represents one segment of a URL path (either literal or template variable).
+ * Auto-generated from OpenAPI specification.
+ *
+ * Node types:
+ * - Literal node: represents a fixed path segment (e.g., "api", "users")
+ * - Template node: represents a variable path segment (e.g., {id}, {userId})
+ *
+ * Tree structure:
+ * - Each node can have multiple literal children (one per unique segment)
+ * - Each node can have at most one template child (wildcard match)
+ * - Literal children have priority over template child during matching
+ * - Each node can have multiple handlers (one per HTTP method)
+ *
+ * Example tree for routes "/api/users" and "/api/users/{id}":
+ * ```
+ * root
+ *  |
+ *  +- "api" (literal)
+ *      |
+ *      +- "users" (literal)
+ *          |
+ *          +- {id} (template, variable="id")
+ * ```
+ */
+internal class RouteNode(
+    /**
+     * The path segment this node represents (e.g., "api" or "{id}").
+     */
+    val segment: String,
+
+    /**
+     * Whether this node represents a template variable.
+     */
+    private val isTemplate: Boolean = false,
+
+    /**
+     * The variable name if this is a template node (e.g., "id" for "{id}").
+     * Null for literal nodes.
+     */
+    private val variableName: String? = null
+) {
+    /**
+     * Map of literal child nodes by segment name.
+     * Key: segment string, Value: child RouteNode.
+     */
+    private val literalChildren: MutableMap<String, RouteNode> = mutableMapOf()
+
+    /**
+     * Single template child node for wildcard matching.
+     * Null if no template child exists.
+     */
+    private var templateChild: RouteNode? = null
+
+    /**
+     * Map of HTTP method to handler function.
+     * Only populated for terminal nodes (end of a route pattern).
+     */
+    private val handlers: MutableMap<HttpMethod, (ApiRequest) -> ApiResponse<*>> = mutableMapOf()
+
+    /**
+     * Add a route starting from this node.
+     * Recursively navigates/creates the Trie structure.
+     *
+     * @param pattern the full route pattern (e.g., "/api/users/{id}")
+     * @param method HTTP method
+     * @param handler request handler
+     */
+    fun addRoute(pattern: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>) {
+        val segments = pattern.split("/").filter { it.isNotEmpty() }
+        addRouteRecursive(segments, 0, method, handler)
+    }
+
+    /**
+     * Match a path against the Trie structure.
+     * Returns the handler and extracted path variables on success.
+     *
+     * @param path the request path (e.g., "/api/users/123")
+     * @param method HTTP method
+     * @return MatchResult with handler and path variables, or null if no match
+     */
+    fun match(path: String, method: HttpMethod): RouteTree.MatchResult? {
+        val segments = path.split("/").filter { it.isNotEmpty() }
+        val pathVariables = mutableMapOf<String, String>()
+        val handler = matchRecursive(segments, 0, method, pathVariables) ?: return null
+        return RouteTree.MatchResult(handler, pathVariables)
+    }
+
+    private fun addRouteRecursive(
+        segments: List<String>,
+        index: Int,
+        method: HttpMethod,
+        handler: (ApiRequest) -> ApiResponse<*>
+    ) {
+        if (index >= segments.size) {
+            handlers[method] = handler
+            return
+        }
+
+        val segment = segments[index]
+        val isTemplateSegment = segment.startsWith("{") && segment.endsWith("}")
+
+        if (isTemplateSegment) {
+            val variableName = segment.substring(1, segment.length - 1)
+            if (templateChild == null) {
+                templateChild = RouteNode(segment, true, variableName)
+            }
+            templateChild!!.addRouteRecursive(segments, index + 1, method, handler)
+        } else {
+            val child = literalChildren.computeIfAbsent(segment) { RouteNode(segment, false) }
+            child.addRouteRecursive(segments, index + 1, method, handler)
+        }
+    }
+
+    private fun matchRecursive(
+        segments: List<String>,
+        index: Int,
+        method: HttpMethod,
+        pathVariables: MutableMap<String, String>
+    ): ((ApiRequest) -> ApiResponse<*>)? {
+        if (index >= segments.size) {
+            return handlers[method]
+        }
+
+        val segment = segments[index]
+
+        // Try literal children first (they have priority)
+        literalChildren[segment]?.let { child ->
+            return child.matchRecursive(segments, index + 1, method, pathVariables)
+        }
+
+        // Try template child
+        templateChild?.let { child ->
+            if (child.variableName != null) {
+                pathVariables[child.variableName] = segment
+            }
+            return child.matchRecursive(segments, index + 1, method, pathVariables)
+        }
+
+        return null
+    }
+
+    override fun toString(): String {
+        return "RouteNode(segment='$segment', isTemplate=$isTemplate, variableName=$variableName)"
+    }
+}

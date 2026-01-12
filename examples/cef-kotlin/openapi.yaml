@@ -1,0 +1,425 @@
+openapi: 3.0.3
+info:
+  title: Task Management API
+  version: 2.0.0
+  description: Comprehensive example demonstrating CEF OpenAPI Generator capabilities
+servers:
+  - url: http://localhost:5173
+    description: Development server
+
+paths:
+  # Task CRUD operations
+  /api/tasks:
+    get:
+      operationId: listTasks
+      tags: [tasks]
+      summary: List all tasks with filtering and pagination
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, in_progress, blocked, review, completed, cancelled]
+          description: Filter by task status
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+          description: Page number for pagination
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Number of items per page
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+
+    post:
+      operationId: createTask
+      tags: [tasks]
+      summary: Create new task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/tasks/{taskId}:
+    get:
+      operationId: getTask
+      tags: [tasks]
+      summary: Get task by ID
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      operationId: updateTask
+      tags: [tasks]
+      summary: Update existing task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Task not found
+
+    delete:
+      operationId: deleteTask
+      tags: [tasks]
+      summary: Delete task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted successfully
+        '404':
+          description: Task not found
+
+  /api/tasks/{taskId}/status:
+    patch:
+      operationId: updateTaskStatus
+      tags: [tasks]
+      summary: Update task status
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskStatusRequest'
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+
+  # Statistics
+  /api/statistics:
+    get:
+      operationId: getStatistics
+      tags: [statistics]
+      summary: Get task statistics
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskStatistics'
+
+  # Browser integration
+  /api/browser/notify:
+    post:
+      operationId: notifyBrowser
+      tags: [browser]
+      summary: Send notification to browser via JavaScript
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotifyBrowserRequest'
+      responses:
+        '200':
+          description: Notification sent
+
+components:
+  schemas:
+    Task:
+      type: object
+      required:
+        - id
+        - title
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        assignee:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        dueDate:
+          type: string
+
+    CreateTaskRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        assignee:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        dueDate:
+          type: string
+
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        assignee:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        dueDate:
+          type: string
+
+    UpdateTaskStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+
+    NotifyBrowserRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+        type:
+          type: string
+          enum: [info, warning, error, success]
+        user-id:
+          type: string
+          description: Test field with dash in name
+
+    TaskListResponse:
+      type: object
+      required:
+        - tasks
+        - total
+        - page
+        - pageSize
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        total:
+          type: integer
+          description: Total number of tasks matching filter
+        page:
+          type: integer
+          description: Current page number (0-based)
+        pageSize:
+          type: integer
+          description: Number of items per page
+
+    TaskStatistics:
+      type: object
+      required:
+        - totalTasks
+        - byStatus
+        - byPriority
+      properties:
+        totalTasks:
+          type: integer
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        byPriority:
+          type: object
+          additionalProperties:
+            type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    TaskStatus:
+      type: string
+      description: Status of a task with rich metadata
+      enum:
+        - PENDING
+        - IN_PROGRESS
+        - BLOCKED
+        - REVIEW
+        - COMPLETED
+        - CANCELLED
+      x-enum-field-displayName:
+        - Pending
+        - In Progress
+        - Blocked
+        - In Review
+        - Completed
+        - Cancelled
+      x-enum-field-value:
+        - pending
+        - in_progress
+        - blocked
+        - review
+        - completed
+        - cancelled
+      x-enum-field-priority:
+        - 1
+        - 2
+        - 3
+        - 4
+        - 5
+        - 6
+      x-enum-field-active:
+        - true
+        - true
+        - true
+        - true
+        - false
+        - false
+      x-enum-field-color:
+        - "#6B7280"
+        - "#3B82F6"
+        - "#EF4444"
+        - "#F59E0B"
+        - "#10B981"
+        - "#6B7280"
+
+    TaskPriority:
+      type: string
+      description: Task priority level
+      enum:
+        - LOW
+        - MEDIUM
+        - HIGH
+        - CRITICAL
+      x-enum-field-displayName:
+        - Low
+        - Medium
+        - High
+        - Critical
+      x-enum-field-value:
+        - low
+        - medium
+        - high
+        - critical
+      x-enum-field-weight:
+        - 1
+        - 2
+        - 3
+        - 4
+      x-enum-field-urgent:
+        - false
+        - false
+        - true
+        - true

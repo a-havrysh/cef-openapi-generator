@@ -1,15 +1,21 @@
 plugins {
     id("java")
     id("maven-publish")
+    id("jacoco")
 }
 
 group = "io.github.cef"
-version = "2.0.0"
+version = "3.0.0"  // Major refactoring: modern structure, consistent naming, Kotlin idioms
 
 dependencies {
     implementation("org.openapitools:openapi-generator:7.18.0")
     compileOnly("org.projectlombok:lombok:1.18.42")
     annotationProcessor("org.projectlombok:lombok:1.18.42")
+
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
+    testImplementation("org.mockito:mockito-core:5.8.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.8.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 java {
@@ -17,6 +23,15 @@ java {
     targetCompatibility = JavaVersion.VERSION_17
     withSourcesJar()
     withJavadocJar()
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    // Ensure compiled bytecode is compatible with JaCoCo 0.8.12
+    options.release = 17
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 publishing {
@@ -62,4 +77,35 @@ publishing {
             }
         }
     }
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+tasks.jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                minimum = "0.80".toBigDecimal()  // 80% coverage for generator code
+            }
+        }
+    }
+}
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
 }

@@ -4,19 +4,41 @@ OpenAPI Code Generator for Chromium Embedded Framework (CEF) with JetBrains Plat
 
 ## Features
 
+### Core Framework
 - **RouteTree Routing**: Trie-based routing, 2.6x faster than regex
 - **Type-Safe Parameters**: Query params, path variables, body automatically extracted and typed
-- **OpenAPI Validation**: Automatic parameter validation against OpenAPI constraints (minLength, maxLength, minimum, maximum, pattern, enum)
 - **ApiResponse<T>**: Generic response wrapper (like Spring ResponseEntity)
 - **Builder Pattern**: Fluent API for custom routes and configuration
-- **Request/Response Interceptors**: Logging, metrics, authentication, validation support
-- **Exception Handler**: Centralized error handling with custom error responses
-- **CORS Support**: Cross-origin resource sharing with origin whitelisting
-- **Enum Custom Fields**: Auto-detect types (Integer, String, Boolean, etc.) from YAML values
 - **Zero Dependencies**: No Lombok, Swagger, Jakarta Validation, or Spring (only Jackson for JSON)
 - **Java 17+ Compatible**: Modern Java with records, switch expressions
-- **Extensible**: Add prefix/exact/contains/pattern routes alongside API routes
 - **Direct CEF Access**: CefBrowser, CefFrame, CefRequest in wrapper methods
+
+### OpenAPI Validation (v2.0.0+)
+- **String Validation**: minLength, maxLength, pattern (regex), enum
+- **Numeric Validation**: minimum, maximum, exclusiveMinimum, exclusiveMaximum, multipleOf
+- **Array Validation**: minItems, maxItems, uniqueItems, item enum validation
+- **Format Validation**: email, uuid, uri, hostname, ipv4, ipv6
+- **Date/Time Parsing**: format: date → LocalDate, format: date-time → OffsetDateTime
+- **Boolean Parsing**: Accepts true/false, 1/0, yes/no, on/off (case-insensitive)
+- **Default Values**: Automatically applied from OpenAPI schema
+- **Nullable Handling**: Proper null handling per OpenAPI specification
+
+### Interceptors & Middleware
+- **Request/Response Interceptors**: Logging, metrics, custom processing
+- **Type-Specific Exception Handlers**: Different handlers for different exception types
+- **CORS Support**: Cross-origin resource sharing with origin whitelisting
+- **Validation Interceptor**: Automatic OpenAPI constraint validation (enable with `.withValidation()`)
+- **API Key Authentication**: Header, query parameter, or cookie-based auth
+- **Bearer Token (JWT)**: Authorization: Bearer <token> authentication
+- **Basic Authentication**: Authorization: Basic <base64> authentication
+
+### Advanced Features
+- **File Upload**: multipart/form-data parsing with MultipartFile support
+- **Mock Service Generator**: Auto-generated mock implementations from OpenAPI examples
+- **Enhanced JavaDoc**: Rich documentation from OpenAPI descriptions and constraints
+- **Deprecated Annotations**: @Deprecated for deprecated operations
+- **Enum Custom Fields**: Auto-detect types (Integer, String, Boolean, etc.) from YAML values
+- **Model Naming Options**: Add suffix/prefix to generated models (modelSuffix, modelPrefix)
 
 ## Installation
 
@@ -616,11 +638,12 @@ The testing guide covers:
 - **[TESTING.md](TESTING.md)** - Comprehensive testing guide
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 - **[MIGRATION.md](MIGRATION.md)** - Migration guides between versions
-- **[example/README.md](example/README.md)** - Example project documentation
+- **[examples/cef-java/README.md](examples/cef-java/README.md)** - Java example project
+- **[examples/cef-kotlin/README.md](examples/cef-kotlin/README.md)** - Kotlin example project
 
 ## Version
 
-**Current version: 1.1.0** (2026-01-10)
+**Current version: 3.0.0** (2026-01-12)
 
 **Key Features:**
 - Type-safe parameters (query, path, body)

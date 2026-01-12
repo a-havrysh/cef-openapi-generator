@@ -1,0 +1,80 @@
+package {{package}}.service;
+
+{{#imports}}
+import {{import}};
+{{/imports}}
+import {{apiPackage}}.protocol.ApiResponse;
+
+/**
+ * Mock implementation of {{classname}} that returns example responses from OpenAPI specification.
+ *
+ * <p>Useful for:
+ * <ul>
+ *   <li>Frontend development before backend is ready</li>
+ *   <li>API demonstrations and prototyping</li>
+ *   <li>Testing and integration scenarios</li>
+ * </ul>
+ *
+ * <h2>Usage</h2>
+ * <pre>{@code
+ * // Register mock service instead of real implementation
+ * {{classname}}Service mockService = new {{classname}}MockService();
+ * }</pre>
+ *
+ * <p>Auto-generated from OpenAPI specification examples.
+ *
+ * @see {{classname}}Service
+ */
+public class {{classname}}MockService implements {{classname}}Service {
+{{#operations}}
+{{#operation}}
+
+    /**
+     * Mock: {{httpMethod}} {{path}}{{#summary}} : {{.}}{{/summary}}
+     * Returns example response from OpenAPI specification.
+{{#hasExamples}}
+     *
+     * <p>Example response:
+     * <pre>{{#responses}}{{#examples}}{{#-first}}
+     * {{#content}}{{#-first}}{{example}}{{/-first}}{{/content}}
+     * {{/-first}}{{/examples}}{{/responses}}</pre>
+{{/hasExamples}}
+     */
+    @Override
+    public {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void{{/returnType}} {{operationId}}({{#allParams}}{{#isPathParam}}String {{paramName}}{{/isPathParam}}{{#isQueryParam}}{{{dataType}}} {{paramName}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}} {{paramName}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}} {{paramName}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}} {{paramName}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}} {{paramName}}{{/isFormParam}}{{^-last}}, {{/-last}}{{/allParams}}) {
+{{#returnType}}
+{{#responses}}
+{{#is2xx}}
+{{#examples}}
+{{#-first}}
+        // Return mock example from OpenAPI spec
+        {{#vendorExtensions.x-example-object}}
+        {{{returnType}}} mockResponse = new {{{returnType}}}();
+        {{#vars}}
+        {{#vendorExtensions.x-has-example}}
+        mockResponse.set{{#lambda.titlecase}}{{name}}{{/lambda.titlecase}}({{{vendorExtensions.x-example-value}}});
+        {{/vendorExtensions.x-has-example}}
+        {{/vars}}
+        return mockResponse;
+        {{/vendorExtensions.x-example-object}}
+        {{^vendorExtensions.x-example-object}}
+        // TODO: Add example to OpenAPI spec for operation {{operationId}}
+        return null;
+        {{/vendorExtensions.x-example-object}}
+{{/-first}}
+{{/examples}}
+{{^examples}}
+        // No example defined in OpenAPI spec
+        return null;
+{{/examples}}
+{{/is2xx}}
+{{/responses}}
+{{/returnType}}
+{{^returnType}}
+        // Void operation - no mock response
+        return null;
+{{/returnType}}
+    }
+{{/operation}}
+{{/operations}}
+}
