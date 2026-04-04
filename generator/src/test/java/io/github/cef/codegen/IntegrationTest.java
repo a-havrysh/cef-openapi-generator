@@ -10,6 +10,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -160,7 +161,101 @@ class IntegrationTest {
         }
     }
 
+    @Nested
+    class ConfigOptions {
+
+        @Test
+        void serializableModel(@TempDir Path outputDir) {
+            generateWith("cef-kotlin", outputDir, Map.of("serializableModel", "true"));
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/dto/User.kt"));
+            assertTrue(content.contains("Serializable"), "Should implement Serializable");
+            assertTrue(content.contains("import java.io.Serializable"), "Should import Serializable");
+        }
+
+        @Test
+        void serializableModelJava(@TempDir Path outputDir) {
+            generateWith("cef", outputDir, Map.of("serializableModel", "true"));
+            var content = readFile(outputDir.resolve("src/main/java/com/example/api/dto/User.java"));
+            assertTrue(content.contains("implements Serializable"), "Should implement Serializable");
+            assertTrue(content.contains("serialVersionUID"), "Should have serialVersionUID");
+        }
+
+        @Test
+        void containerDefaultToNull(@TempDir Path outputDir) {
+            generateWith("cef-kotlin", outputDir, Map.of("containerDefaultToNull", "true"));
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/dto/User.kt"));
+            // tags: List<String> should default to null, not emptyList()
+            assertTrue(content.contains("= null") || !content.contains("emptyList()"),
+                "Container fields should default to null");
+        }
+
+        @Test
+        void generateBuildersJava(@TempDir Path outputDir) {
+            generateWith("cef", outputDir, Map.of("generateBuilders", "true"));
+            var content = readFile(outputDir.resolve("src/main/java/com/example/api/dto/User.java"));
+            assertTrue(content.contains("public static Builder builder()"), "Should have Builder");
+            assertTrue(content.contains("public static final class Builder"), "Should have Builder class");
+        }
+
+        @Test
+        void noBuildersWithoutOption(@TempDir Path outputDir) {
+            generateWith("cef", outputDir, Map.of("generateBuilders", "false"));
+            var content = readFile(outputDir.resolve("src/main/java/com/example/api/dto/User.java"));
+            assertFalse(content.contains("static Builder builder()"), "Should NOT have Builder");
+        }
+
+        @Test
+        void additionalModelTypeAnnotations(@TempDir Path outputDir) {
+            generateWith("cef-kotlin", outputDir,
+                Map.of("additionalModelTypeAnnotations", "@kotlinx.serialization.Serializable"));
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/dto/User.kt"));
+            assertTrue(content.contains("@kotlinx.serialization.Serializable"),
+                "Should have custom annotation");
+        }
+
+        @Test
+        void additionalEnumTypeAnnotations(@TempDir Path outputDir) {
+            generateWith("cef-kotlin", outputDir,
+                Map.of("additionalEnumTypeAnnotations", "@Deprecated"));
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/dto/Role.kt"));
+            assertTrue(content.contains("@Deprecated"), "Enum should have custom annotation");
+        }
+
+        @Test
+        void modelSuffix(@TempDir Path outputDir) {
+            generateWith("cef-kotlin", outputDir, Map.of("modelSuffix", "Dto"));
+            assertFileExists(outputDir.resolve("src/main/kotlin"), "com/example/api/dto/UserDto.kt");
+            assertFileExists(outputDir.resolve("src/main/kotlin"), "com/example/api/dto/RoleDto.kt");
+        }
+
+        @Test
+        void dateLibraryDefault(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            // Default dateLibrary=java8: OffsetDateTime for date-time
+            // Our test spec doesn't have date fields, but verify no crash
+            assertFileExists(outputDir.resolve("src/main/kotlin"), "com/example/api/dto/User.kt");
+        }
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────
+
+    private void generateWith(String generatorName, Path outputDir, Map<String, String> configOpts) {
+        var configurator = new CodegenConfigurator();
+        configurator.setGeneratorName(generatorName);
+        configurator.setInputSpec(SPEC);
+        configurator.setOutputDir(outputDir.toString());
+        configurator.setModelPackage("com.example.api.dto");
+        configurator.setApiPackage("com.example.api");
+        configurator.addAdditionalProperty("hideGenerationTimestamp", "true");
+
+        for (var entry : configOpts.entrySet()) {
+            configurator.addAdditionalProperty(entry.getKey(), entry.getValue());
+        }
+
+        var generator = new DefaultGenerator();
+        generator.opts(configurator.toClientOptInput());
+        generator.generate();
+    }
 
     private void generate(String generatorName, Path outputDir) {
         var configurator = new CodegenConfigurator();

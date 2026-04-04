@@ -7,6 +7,7 @@ import io.github.cef.codegen.processing.ImportFilter;
 import io.github.cef.codegen.processing.ParameterConstraintExtractor;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.servers.Server;
+import org.openapitools.codegen.CodegenConstants;
 import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenProperty;
@@ -28,6 +29,17 @@ import java.util.Set;
  * - CEF integration (request handlers, response serialization)
  * - Interceptors (CORS, auth, validation)
  * - Exception hierarchy (400, 404, 500, 501)
+ *
+ * Supported configOptions (in addition to inherited AbstractJavaCodegen options):
+ * - modelSuffix / modelPrefix — naming customization
+ * - hideGenerationTimestamp — default true
+ * - serializableModel — adds Serializable to models
+ * - containerDefaultToNull — null instead of empty collections
+ * - generateConstructorWithAllArgs — all-args constructor (Java)
+ * - generateBuilders — Builder pattern (Java)
+ * - additionalModelTypeAnnotations — extra class-level annotations
+ * - additionalEnumTypeAnnotations — extra enum-level annotations
+ * - dateLibrary — java8 (default), java8-localdatetime
  *
  * @see CefKotlinCodegen
  */
@@ -68,6 +80,7 @@ public class CefCodegen extends AbstractJavaCodegen {
     public void processOpts() {
         super.processOpts();
         applyModelNamingOptions();
+        applyGenerationOptions();
         configureTemplates();
         GeneratorLayer.registerAll(supportingFiles, apiPackage, sourceFolder);
     }
@@ -78,6 +91,29 @@ public class CefCodegen extends AbstractJavaCodegen {
         }
         if (additionalProperties.containsKey("modelPrefix")) {
             setModelNamePrefix(additionalProperties.get("modelPrefix").toString());
+        }
+    }
+
+    /**
+     * Propagates configOptions into additionalProperties so they are accessible
+     * in Mustache templates. AbstractJavaCodegen handles most of these internally,
+     * but we make them explicitly available for our custom templates.
+     */
+    private void applyGenerationOptions() {
+        // These are already processed by AbstractJavaCodegen.processOpts() via
+        // convertPropertyToBooleanAndWriteBack(), but we ensure template visibility
+        propagateBooleanProperty(CodegenConstants.SERIALIZABLE_MODEL, "serializableModel");
+        propagateBooleanProperty("containerDefaultToNull", "containerDefaultToNull");
+        propagateBooleanProperty("generateConstructorWithAllArgs", "generateConstructorWithAllArgs");
+        propagateBooleanProperty("generateBuilders", "generateBuilders");
+
+        // String annotations — already parsed by AbstractJavaCodegen into lists,
+        // available via additionalModelTypeAnnotations / additionalEnumTypeAnnotations
+    }
+
+    private void propagateBooleanProperty(String key, String templateKey) {
+        if (additionalProperties.containsKey(key)) {
+            additionalProperties.put(templateKey, Boolean.parseBoolean(additionalProperties.get(key).toString()));
         }
     }
 

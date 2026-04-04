@@ -4,12 +4,18 @@ import com.fasterxml.jackson.annotation.JsonProperty
 {{#imports}}
 import {{import}}
 {{/imports}}
+{{#serializableModel}}
+import java.io.Serializable
+{{/serializableModel}}
 
 {{#models}}
 {{#model}}
 {{#isEnum}}
+{{#additionalEnumTypeAnnotations}}
+{{{.}}}
+{{/additionalEnumTypeAnnotations}}
 {{#vendorExtensions.hasEnumFields}}
-enum class {{classname}}({{#vendorExtensions.enumFields}}val {{name}}: {{type}}{{^-last}}, {{/-last}}{{/vendorExtensions.enumFields}}) {
+enum class {{classname}}({{#vendorExtensions.enumFields}}val {{name}}: {{type}}{{^-last}}, {{/-last}}{{/vendorExtensions.enumFields}}){{#serializableModel}} : Serializable{{/serializableModel}} {
 {{#allowableValues}}
 {{#enumVars}}
     {{name}}({{{constructorArgs}}}){{^-last}},{{/-last}}{{#-last}};{{/-last}}
@@ -18,7 +24,7 @@ enum class {{classname}}({{#vendorExtensions.enumFields}}val {{name}}: {{type}}{
 }
 {{/vendorExtensions.hasEnumFields}}
 {{^vendorExtensions.hasEnumFields}}
-enum class {{classname}}(val value: String) {
+enum class {{classname}}(val value: String){{#serializableModel}} : Serializable{{/serializableModel}} {
 {{#allowableValues}}
 {{#enumVars}}
     @JsonProperty({{{value}}})
@@ -35,12 +41,15 @@ enum class {{classname}}(val value: String) {
 {{/vendorExtensions.hasEnumFields}}
 {{/isEnum}}
 {{^isEnum}}
+{{#additionalModelTypeAnnotations}}
+{{{.}}}
+{{/additionalModelTypeAnnotations}}
 data class {{classname}}(
 {{#vars}}
     @JsonProperty("{{baseName}}")
-    val {{{name}}}: {{{dataType}}}{{^required}}?{{/required}}{{#isContainer}} = {{#isMap}}emptyMap(){{/isMap}}{{^isMap}}emptyList(){{/isMap}}{{/isContainer}}{{^isContainer}}{{^required}} = null{{/required}}{{/isContainer}}{{^-last}},{{/-last}}
+    val {{{name}}}: {{{dataType}}}{{^required}}?{{/required}}{{#isContainer}} = {{#containerDefaultToNull}}null{{/containerDefaultToNull}}{{^containerDefaultToNull}}{{#isMap}}emptyMap(){{/isMap}}{{^isMap}}emptyList(){{/isMap}}{{/containerDefaultToNull}}{{/isContainer}}{{^isContainer}}{{^required}} = null{{/required}}{{/isContainer}}{{^-last}},{{/-last}}
 {{/vars}}
-)
+){{#serializableModel}} : Serializable{{/serializableModel}}
 {{/isEnum}}
 {{/model}}
 {{/models}}

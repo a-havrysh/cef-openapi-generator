@@ -126,12 +126,27 @@ tasks.compileKotlin { dependsOn(generateApi) }
 | `hideGenerationTimestamp` | `true` | Omit timestamp comment from generated files |
 | `modelSuffix` | — | Append suffix to all model names (e.g., `Dto` → `UserDto`) |
 | `modelPrefix` | — | Prepend prefix to all model names (e.g., `Api` → `ApiUser`) |
+| `serializableModel` | `false` | Add `implements Serializable` (Java) / `: Serializable` (Kotlin) to models |
+| `containerDefaultToNull` | `false` | Init containers (`List`, `Map`) to `null` instead of `emptyList()`/`emptyMap()` |
+| `generateBuilders` | `false` | Generate Builder pattern on Java models (no effect on Kotlin — uses data class copy) |
+| `generateConstructorWithAllArgs` | `false` | Generate all-args constructor on Java models (uses `x-java-all-args-constructor-vars`) |
+| `additionalModelTypeAnnotations` | — | Extra class-level annotations on models (e.g., `@kotlinx.serialization.Serializable`) |
+| `additionalEnumTypeAnnotations` | — | Extra class-level annotations on enums (e.g., `@Deprecated`) |
+| `dateLibrary` | `java8` | Date library: `java8` (OffsetDateTime), `java8-localdatetime` (LocalDateTime) |
 | `openApiNullable` | `false` | Enable Jackson Nullable (`JsonNullable<T>`) — disabled for clean DTOs |
 | `useBeanValidation` | `false` | Add Jakarta Bean Validation annotations — disabled for zero-dep output |
 
 > All standard [AbstractJavaCodegen options](https://openapi-generator.tech/docs/generators/java/) are inherited
-> (e.g., `dateLibrary`, `serializationLibrary`, `sourceFolder`, `sortModelPropertiesByRequiredFlag`, etc.)
-> but may not be relevant for CEF-only code.
+> (e.g., `serializationLibrary`, `sourceFolder`, `sortModelPropertiesByRequiredFlag`, `enumPropertyNaming`, etc.)
+
+**Example** — Kotlin with Serializable + custom annotations:
+```kotlin
+configOptions.set(mapOf(
+    "serializableModel" to "true",
+    "additionalModelTypeAnnotations" to "@kotlinx.serialization.Serializable",
+    "containerDefaultToNull" to "true"
+))
+```
 
 ### Supported Gradle task properties
 

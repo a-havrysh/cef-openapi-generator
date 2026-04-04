@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 {{#imports}}
 import {{import}};
 {{/imports}}
+{{#serializableModel}}
+import java.io.Serializable;
+{{/serializableModel}}
 
 /**
  * {{classname}}{{#description}} - {{{.}}}{{/description}}
@@ -12,6 +15,9 @@ import {{import}};
 {{#models}}
 {{#model}}
 {{#isEnum}}
+{{#additionalEnumTypeAnnotations}}
+{{{.}}}
+{{/additionalEnumTypeAnnotations}}
 public enum {{classname}} {
 {{#allowableValues}}
 {{#enumVars}}
@@ -40,7 +46,14 @@ public enum {{classname}} {
 }
 {{/isEnum}}
 {{^isEnum}}
-public final class {{classname}} {
+{{#additionalModelTypeAnnotations}}
+{{{.}}}
+{{/additionalModelTypeAnnotations}}
+public final class {{classname}}{{#serializableModel}} implements Serializable{{/serializableModel}} {
+{{#serializableModel}}
+
+    private static final long serialVersionUID = 1L;
+{{/serializableModel}}
 {{#vars}}
 
     @JsonProperty("{{baseName}}")
@@ -50,12 +63,22 @@ public final class {{classname}} {
     public {{classname}}() {
     }
 
+{{#vendorExtensions.x-java-all-args-constructor}}
+    public {{classname}}({{#vendorExtensions.x-java-all-args-constructor-vars}}{{{dataType}}} {{name}}{{^-last}}, {{/-last}}{{/vendorExtensions.x-java-all-args-constructor-vars}}) {
+{{#vendorExtensions.x-java-all-args-constructor-vars}}
+        this.{{name}} = {{name}};
+{{/vendorExtensions.x-java-all-args-constructor-vars}}
+    }
+
+{{/vendorExtensions.x-java-all-args-constructor}}
+{{^vendorExtensions.x-java-all-args-constructor}}
     public {{classname}}({{#vars}}{{{dataType}}} {{name}}{{^-last}}, {{/-last}}{{/vars}}) {
 {{#vars}}
         this.{{name}} = {{name}};
 {{/vars}}
     }
 
+{{/vendorExtensions.x-java-all-args-constructor}}
 {{#vars}}
     public {{{dataType}}} get{{#lambda.titlecase}}{{name}}{{/lambda.titlecase}}() {
         return {{name}};
@@ -66,6 +89,7 @@ public final class {{classname}} {
     }
 
 {{/vars}}
+{{#generateBuilders}}
     public static Builder builder() {
         return new Builder();
     }
@@ -89,6 +113,7 @@ public final class {{classname}} {
             return new {{classname}}({{#vars}}{{name}}{{^-last}}, {{/-last}}{{/vars}});
         }
     }
+{{/generateBuilders}}
 }
 {{/isEnum}}
 {{/model}}
