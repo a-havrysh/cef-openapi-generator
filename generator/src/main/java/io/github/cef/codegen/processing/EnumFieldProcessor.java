@@ -19,8 +19,8 @@ public class EnumFieldProcessor {
 
     private final String VENDOR_PREFIX = "x-enum-field-";
     private final String ENUM_VARS_KEY = "enumVars";
-    public final String ENUM_FIELDS_KEY = "enumFields";
-    public final String HAS_ENUM_FIELDS_KEY = "hasEnumFields";
+    public static final String ENUM_FIELDS_KEY = "enumFields";
+    public static final String HAS_ENUM_FIELDS_KEY = "hasEnumFields";
     private final String CONSTRUCTOR_ARGS_KEY = "constructorArgs";
     private final String FIELD_NAME = "name";
     private final String FIELD_TYPE = "type";

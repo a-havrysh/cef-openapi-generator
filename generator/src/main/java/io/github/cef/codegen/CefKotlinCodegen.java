@@ -1,9 +1,5 @@
 package io.github.cef.codegen;
 
-import io.github.cef.codegen.config.FileSpec;
-import io.github.cef.codegen.processing.EnumFieldProcessor;
-import io.github.cef.codegen.processing.ImportFilter;
-import io.github.cef.codegen.processing.TypeConverter;
 import io.swagger.v3.oas.models.media.Schema;
 import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.CodegenProperty;
@@ -16,20 +12,28 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.github.cef.codegen.processing.EnumFieldProcessor;
+import io.github.cef.codegen.processing.ImportFilter;
+import io.github.cef.codegen.processing.TypeConverter;
+
+import static io.github.cef.codegen.config.FileSpec.API_SERVICE;
+import static io.github.cef.codegen.processing.EnumFieldProcessor.ENUM_FIELDS_KEY;
+
 /**
  * Kotlin code generator for CEF OpenAPI specifications.
- * Produces idiomatic Kotlin: data class, by lazy, reified, Unit, fun interface.
+ * Produces idiomatic Kotlin: data class, by lazy,
+ * reified, Unit, fun interface.
  */
 public class CefKotlinCodegen extends CefCodegen {
 
     private static final String GENERATOR_NAME = "cef-kotlin";
     private static final String GENERATOR_HELP =
-        "Generates idiomatic Kotlin code for CEF-based OpenAPI APIs";
+        "Generates idiomatic Kotlin code for CEF-based APIs";
     private static final String TEMPLATE_DIR = "cef-kotlin";
-    private static final String KOTLIN_SOURCE_FOLDER = "src/main/kotlin";
+    private static final String KOTLIN_SOURCE_FOLDER =
+        "src/main/kotlin";
 
     // Vendor extension keys
-    private static final String VE_ENUM_FIELDS = EnumFieldProcessor.ENUM_FIELDS_KEY;
     private static final String VE_FIELD_TYPE = "type";
 
     // Kotlin identifier escaping
@@ -81,8 +85,9 @@ public class CefKotlinCodegen extends CefCodegen {
         importMapping.clear();
 
         languageSpecificPrimitives.addAll(List.of(
-            "Int", "Long", "Float", "Double", "Boolean", "String", "Any",
-            "List", "Map", "Set", "ByteArray", "Byte", "Short", "Char", "Unit"
+            "Int", "Long", "Float", "Double", "Boolean",
+            "String", "Any", "List", "Map", "Set",
+            "ByteArray", "Byte", "Short", "Char", "Unit"
         ));
     }
 
@@ -108,8 +113,8 @@ public class CefKotlinCodegen extends CefCodegen {
 
         apiTemplateFiles.clear();
         apiTemplateFiles.put(
-            API_TEMPLATE_PREFIX + FileSpec.API_SERVICE.getTemplateName(),
-            FileSpec.API_SERVICE.kotlinFileName());
+            API_TEMPLATE_PREFIX + API_SERVICE.getTemplateName(),
+            API_SERVICE.kotlinFileName());
 
         modelDocTemplateFiles.clear();
         modelDocTemplateFiles.put(MODEL_DOC_TEMPLATE, MARKDOWN_EXT);
@@ -128,14 +133,19 @@ public class CefKotlinCodegen extends CefCodegen {
         List<SupportingFile> kotlinFiles = new ArrayList<>();
         for (var file : supportingFiles) {
             var template = file.getTemplateFile();
-            if (template != null && template.contains(MOCK_SERVICE_FILTER)) continue;
+            if (template != null
+                && template.contains(MOCK_SERVICE_FILTER)) {
+                continue;
+            }
 
             var dest = file.getDestinationFilename();
             if (dest.endsWith(JAVA_EXT)) {
                 var ktDest = dest.replace(JAVA_EXT, KOTLIN_EXT);
                 var ktFile = new SupportingFile(
                     template, file.getFolder(), ktDest);
-                if (!file.isCanOverwrite()) ktFile.doNotOverwrite();
+                if (!file.isCanOverwrite()) {
+                    ktFile.doNotOverwrite();
+                }
                 kotlinFiles.add(ktFile);
             } else {
                 kotlinFiles.add(file);
@@ -147,18 +157,22 @@ public class CefKotlinCodegen extends CefCodegen {
 
     @Override
     public String toModelFilename(String name) {
-        return super.toModelFilename(name).replace(JAVA_EXT, KOTLIN_EXT);
+        return super.toModelFilename(name)
+            .replace(JAVA_EXT, KOTLIN_EXT);
     }
 
     @Override
     public String toApiFilename(String name) {
-        return super.toApiFilename(name).replace(JAVA_EXT, KOTLIN_EXT);
+        return super.toApiFilename(name)
+            .replace(JAVA_EXT, KOTLIN_EXT);
     }
 
     // ── Model post-processing
 
     @Override
-    public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
+    public void postProcessModelProperty(
+        CodegenModel model, CodegenProperty property
+    ) {
         super.postProcessModelProperty(model, property);
         escapeKotlinIdentifiers(property);
         kotlinifyProperty(property);
@@ -178,8 +192,7 @@ public class CefKotlinCodegen extends CefCodegen {
             }
             if (model.imports != null) {
                 model.imports.removeIf(imp ->
-                    ImportFilter.shouldFilterForKotlin(
-                        imp, modelPackage()));
+                    ImportFilter.shouldFilterForKotlin(imp, modelPackage()));
             }
 
             kotlinifyEnumFieldTypes(model);
@@ -190,36 +203,50 @@ public class CefKotlinCodegen extends CefCodegen {
 
     // ── Kotlin-specific transformations
 
-    private void escapeKotlinIdentifiers(CodegenProperty property) {
-        if (property.baseName != null && property.baseName.contains(DOLLAR)) {
-            property.baseName = property.baseName.replace(DOLLAR, ESCAPED_DOLLAR);
+    private void escapeKotlinIdentifiers(
+        CodegenProperty property
+    ) {
+        if (property.baseName != null
+            && property.baseName.contains(DOLLAR)) {
+            property.baseName = property.baseName
+                .replace(DOLLAR, ESCAPED_DOLLAR);
         }
-        if (property.name != null && property.name.contains(DOLLAR)) {
-            property.name = BACKTICK + property.name + BACKTICK;
+        if (property.name != null
+            && property.name.contains(DOLLAR)) {
+            property.name =
+                BACKTICK + property.name + BACKTICK;
         }
     }
 
     private void kotlinifyProperty(CodegenProperty property) {
         property.dataType = TypeConverter.kotlinify(property.dataType);
-        property.datatypeWithEnum = TypeConverter.kotlinify(property.datatypeWithEnum);
+        property.datatypeWithEnum =
+            TypeConverter.kotlinify(property.datatypeWithEnum);
         property.baseType = TypeConverter.kotlinify(property.baseType);
-        property.defaultValue = TypeConverter.kotlinifyDefaultValue(property.defaultValue);
+        property.defaultValue =
+            TypeConverter.kotlinifyDefaultValue(property.defaultValue);
     }
 
-    /** Converts enum field types from Java (Integer) to Kotlin (Int). */
     @SuppressWarnings("unchecked")
     private void kotlinifyEnumFieldTypes(CodegenModel model) {
-        if (!model.vendorExtensions.containsKey(VE_ENUM_FIELDS)) return;
+        if (!model.vendorExtensions.containsKey(ENUM_FIELDS_KEY)) {
+            return;
+        }
 
-        var fields = (List<Map<String, String>>) model.vendorExtensions.get(VE_ENUM_FIELDS);
+        var fields = (List<Map<String, String>>)
+            model.vendorExtensions.get(ENUM_FIELDS_KEY);
+
         var kotlinified = fields.stream()
             .map(field -> {
                 var mutable = new HashMap<>(field);
                 var type = mutable.get(VE_FIELD_TYPE);
-                if (type != null) mutable.put(VE_FIELD_TYPE, TypeConverter.kotlinify(type));
+                if (type != null) {
+                    mutable.put(VE_FIELD_TYPE, TypeConverter.kotlinify(type));
+                }
                 return (Map<String, String>) mutable;
             })
             .toList();
-        model.vendorExtensions.put(VE_ENUM_FIELDS, kotlinified);
+
+        model.vendorExtensions.put(ENUM_FIELDS_KEY, kotlinified);
     }
 }

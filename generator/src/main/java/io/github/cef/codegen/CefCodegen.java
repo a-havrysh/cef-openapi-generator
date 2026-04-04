@@ -1,14 +1,7 @@
 package io.github.cef.codegen;
 
-import io.github.cef.codegen.config.FileSpec;
-import io.github.cef.codegen.config.GeneratorLayer;
-import io.github.cef.codegen.processing.EnumFieldProcessor;
-import io.github.cef.codegen.processing.ImportFilter;
-import io.github.cef.codegen.processing.ParameterConstraintExtractor;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.servers.Server;
-import org.openapitools.codegen.CliOption;
-import org.openapitools.codegen.CodegenConstants;
 import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenProperty;
@@ -21,8 +14,19 @@ import java.io.File;
 import java.util.Map;
 import java.util.Set;
 
+import io.github.cef.codegen.config.GeneratorLayer;
+import io.github.cef.codegen.processing.EnumFieldProcessor;
+import io.github.cef.codegen.processing.ImportFilter;
+import io.github.cef.codegen.processing.ParameterConstraintExtractor;
+
+import static io.github.cef.codegen.config.FileSpec.API_SERVICE;
+import static io.github.cef.codegen.config.FileSpec.MOCK_SERVICE;
+import static org.openapitools.codegen.CliOption.newString;
+import static org.openapitools.codegen.CodegenConstants.SERIALIZABLE_MODEL;
+
 /**
- * CEF (Chromium Embedded Framework) code generator for OpenAPI specifications.
+ * CEF (Chromium Embedded Framework) code generator
+ * for OpenAPI specifications.
  *
  * @see CefKotlinCodegen
  */
@@ -30,7 +34,8 @@ public class CefCodegen extends AbstractJavaCodegen {
 
     // Generator identity
     private static final String GENERATOR_NAME = "cef";
-    private static final String GENERATOR_HELP = "CEF generator for BPMN Editor";
+    private static final String GENERATOR_HELP =
+        "CEF generator for BPMN Editor";
     private static final String TEMPLATE_DIR = "cef-java";
     private static final String SERVICE_SUBDIR = "service";
 
@@ -52,8 +57,10 @@ public class CefCodegen extends AbstractJavaCodegen {
     // Config option keys
     static final String OPT_MODEL_SUFFIX = "modelSuffix";
     static final String OPT_MODEL_PREFIX = "modelPrefix";
-    static final String OPT_CONTAINER_DEFAULT_TO_NULL = "containerDefaultToNull";
-    static final String OPT_GENERATE_CONSTRUCTOR = "generateConstructorWithAllArgs";
+    static final String OPT_CONTAINER_DEFAULT_TO_NULL =
+        "containerDefaultToNull";
+    static final String OPT_GENERATE_CONSTRUCTOR =
+        "generateConstructorWithAllArgs";
     static final String OPT_GENERATE_BUILDERS = "generateBuilders";
 
     // Bundle keys for Mustache templates
@@ -69,10 +76,10 @@ public class CefCodegen extends AbstractJavaCodegen {
         setOpenApiNullable(false);
         setUseBeanValidation(false);
 
-        cliOptions.add(CliOption.newString(OPT_MODEL_SUFFIX,
-            "Suffix to append to all model class names (e.g., 'Dto' -> TaskDto)"));
-        cliOptions.add(CliOption.newString(OPT_MODEL_PREFIX,
-            "Prefix to prepend to all model class names"));
+        cliOptions.add(newString(OPT_MODEL_SUFFIX,
+            "Suffix for model class names (e.g. 'Dto')"));
+        cliOptions.add(newString(OPT_MODEL_PREFIX,
+            "Prefix for model class names"));
     }
 
     @Override
@@ -94,7 +101,8 @@ public class CefCodegen extends AbstractJavaCodegen {
         applyGenerationOptions();
         configureTemplates();
         GeneratorLayer.registerAll(supportingFiles, apiPackage, sourceFolder);
-        supportingFiles.add(new SupportingFile(README_TEMPLATE, "", README_OUTPUT));
+        supportingFiles.add(
+            new SupportingFile(README_TEMPLATE, "", README_OUTPUT));
     }
 
     private void applyModelNamingOptions() {
@@ -109,7 +117,7 @@ public class CefCodegen extends AbstractJavaCodegen {
     }
 
     private void applyGenerationOptions() {
-        propagateBoolean(CodegenConstants.SERIALIZABLE_MODEL);
+        propagateBoolean(SERIALIZABLE_MODEL);
         propagateBoolean(OPT_CONTAINER_DEFAULT_TO_NULL);
         propagateBoolean(OPT_GENERATE_CONSTRUCTOR);
         propagateBoolean(OPT_GENERATE_BUILDERS);
@@ -126,11 +134,11 @@ public class CefCodegen extends AbstractJavaCodegen {
     protected void configureTemplates() {
         apiTemplateFiles.clear();
         apiTemplateFiles.put(
-            API_TEMPLATE_PREFIX + FileSpec.API_SERVICE.getTemplateName(),
-            FileSpec.API_SERVICE.getFileName());
+            API_TEMPLATE_PREFIX + API_SERVICE.getTemplateName(),
+            API_SERVICE.getFileName());
         apiTemplateFiles.put(
-            API_TEMPLATE_PREFIX + FileSpec.MOCK_SERVICE.getTemplateName(),
-            FileSpec.MOCK_SERVICE.getFileName());
+            API_TEMPLATE_PREFIX + MOCK_SERVICE.getTemplateName(),
+            MOCK_SERVICE.getFileName());
 
         modelTemplateFiles.clear();
         modelTemplateFiles.put(MODEL_TEMPLATE, JAVA_EXT);
@@ -150,13 +158,11 @@ public class CefCodegen extends AbstractJavaCodegen {
 
     @Override
     public String apiFilename(String templateName, String tag) {
-        if (FileSpec.API_SERVICE.getTemplateName()
-            .equals(templateName)
-        ) {
+        if (API_SERVICE.getTemplateName().equals(templateName)) {
             return apiFileFolder()
                 + File.separator + SERVICE_SUBDIR
                 + File.separator + toApiFilename(tag)
-                + FileSpec.API_SERVICE.getFileName();
+                + API_SERVICE.getFileName();
         }
         return super.apiFilename(templateName, tag);
     }
@@ -164,7 +170,9 @@ public class CefCodegen extends AbstractJavaCodegen {
     // ── Parameter processing
 
     @Override
-    public CodegenParameter fromParameter(Parameter parameter, Set<String> imports) {
+    public CodegenParameter fromParameter(
+        Parameter parameter, Set<String> imports
+    ) {
         var param = super.fromParameter(parameter, imports);
         ParameterConstraintExtractor.extract(param, parameter.getSchema());
         return param;
@@ -173,7 +181,9 @@ public class CefCodegen extends AbstractJavaCodegen {
     // ── Model post-processing
 
     @Override
-    public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
+    public void postProcessModelProperty(
+        CodegenModel model, CodegenProperty property
+    ) {
         super.postProcessModelProperty(model, property);
         ImportFilter.cleanupJavaImports(model);
     }
@@ -194,7 +204,9 @@ public class CefCodegen extends AbstractJavaCodegen {
     // ── Supporting file data (server URLs)
 
     @Override
-    public Map<String, Object> postProcessSupportingFileData(Map<String, Object> bundle) {
+    public Map<String, Object> postProcessSupportingFileData(
+        Map<String, Object> bundle
+    ) {
         var result = super.postProcessSupportingFileData(bundle);
 
         if (openAPI != null && openAPI.getServers() != null) {
