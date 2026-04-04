@@ -12,7 +12,9 @@ import org.openapitools.codegen.model.ModelsMap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Kotlin code generator for CEF OpenAPI specifications.
@@ -166,6 +168,22 @@ public class CefKotlinCodegen extends CefCodegen {
             }
             if (model.imports != null) {
                 model.imports.removeIf(imp -> ImportFilter.shouldFilterForKotlin(imp, modelPackage()));
+            }
+
+            // Kotlinify enum field types (Integer → Int, etc.)
+            // Map.of() returns immutable maps, so we must create mutable copies
+            if (model.vendorExtensions.containsKey("enumFields")) {
+                @SuppressWarnings("unchecked")
+                var fields = (List<Map<String, String>>) model.vendorExtensions.get("enumFields");
+                var kotlinified = fields.stream()
+                    .map(field -> {
+                        var mutable = new HashMap<>(field);
+                        var type = mutable.get("type");
+                        if (type != null) mutable.put("type", TypeConverter.kotlinify(type));
+                        return (Map<String, String>) mutable;
+                    })
+                    .toList();
+                model.vendorExtensions.put("enumFields", kotlinified);
             }
         }
 

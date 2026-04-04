@@ -155,7 +155,7 @@ interface {{classname}}Service {
 {{#isDeprecated}}
     @Deprecated("{{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated{{/notes}}")
 {{/isDeprecated}}
-    fun handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}, {{/allParams}}request: ApiRequest, browser: CefBrowser, frame: CefFrame, cefRequest: CefRequest): ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Unit{{/returnType}}> {
+    fun handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}, {{/allParams}}request: ApiRequest, browser: CefBrowser, frame: CefFrame, cefRequest: CefRequest): ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Unit{{/returnType}}> {
         {{#allParams}}
 {{#defaultValue}}
 {{^required}}
@@ -192,7 +192,7 @@ interface {{classname}}Service {
 {{#isDeprecated}}
     @Deprecated("{{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated{{/notes}}")
 {{/isDeprecated}}
-    fun {{operationId}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}{{^-last}}, {{/-last}}{{/allParams}}){{#returnType}}: {{{.}}}{{/returnType}} {
+    fun {{operationId}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{^required}}?{{/required}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}{{^-last}}, {{/-last}}{{/allParams}}){{#returnType}}: {{{.}}}{{/returnType}} {
         throw NotImplementedException("{{operationId}} not implemented")
     }
 {{/operation}}
