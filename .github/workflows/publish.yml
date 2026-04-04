@@ -21,8 +21,8 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build and publish
-        run: ./gradlew :generator:publish
+      - name: Test and publish
+        run: ./gradlew :generator:check :generator:publish
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
