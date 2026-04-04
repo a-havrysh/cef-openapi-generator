@@ -84,7 +84,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         return GENERATOR_HELP;
     }
 
-    // ── Template configuration ──────────────────────────────────────────
+    // ── Template configuration 
 
     @Override
     public void processOpts() {
@@ -98,30 +98,44 @@ public class CefCodegen extends AbstractJavaCodegen {
 
     private void applyModelNamingOptions() {
         if (additionalProperties.containsKey(OPT_MODEL_SUFFIX)) {
-            setModelNameSuffix(additionalProperties.get(OPT_MODEL_SUFFIX).toString());
+            setModelNameSuffix(
+                additionalProperties.get(OPT_MODEL_SUFFIX).toString());
         }
         if (additionalProperties.containsKey(OPT_MODEL_PREFIX)) {
-            setModelNamePrefix(additionalProperties.get(OPT_MODEL_PREFIX).toString());
+            setModelNamePrefix(
+                additionalProperties.get(OPT_MODEL_PREFIX).toString());
         }
     }
 
     private void applyGenerationOptions() {
-        propagateBooleanProperty(CodegenConstants.SERIALIZABLE_MODEL, CodegenConstants.SERIALIZABLE_MODEL);
-        propagateBooleanProperty(OPT_CONTAINER_DEFAULT_TO_NULL, OPT_CONTAINER_DEFAULT_TO_NULL);
-        propagateBooleanProperty(OPT_GENERATE_CONSTRUCTOR, OPT_GENERATE_CONSTRUCTOR);
-        propagateBooleanProperty(OPT_GENERATE_BUILDERS, OPT_GENERATE_BUILDERS);
+        propagateBooleanProperty(
+            CodegenConstants.SERIALIZABLE_MODEL,
+            CodegenConstants.SERIALIZABLE_MODEL);
+        propagateBooleanProperty(
+            OPT_CONTAINER_DEFAULT_TO_NULL,
+            OPT_CONTAINER_DEFAULT_TO_NULL);
+        propagateBooleanProperty(
+            OPT_GENERATE_CONSTRUCTOR, OPT_GENERATE_CONSTRUCTOR);
+        propagateBooleanProperty(
+            OPT_GENERATE_BUILDERS, OPT_GENERATE_BUILDERS);
     }
 
     private void propagateBooleanProperty(String key, String templateKey) {
         if (additionalProperties.containsKey(key)) {
-            additionalProperties.put(templateKey, Boolean.parseBoolean(additionalProperties.get(key).toString()));
+            var value = additionalProperties.get(key).toString();
+            additionalProperties.put(
+                templateKey, Boolean.parseBoolean(value));
         }
     }
 
     protected void configureTemplates() {
         apiTemplateFiles.clear();
-        apiTemplateFiles.put(API_TEMPLATE_PREFIX + FileSpec.API_SERVICE.getTemplateName(), FileSpec.API_SERVICE.getFileName());
-        apiTemplateFiles.put(API_TEMPLATE_PREFIX + FileSpec.MOCK_SERVICE.getTemplateName(), FileSpec.MOCK_SERVICE.getFileName());
+        apiTemplateFiles.put(
+            API_TEMPLATE_PREFIX + FileSpec.API_SERVICE.getTemplateName(),
+            FileSpec.API_SERVICE.getFileName());
+        apiTemplateFiles.put(
+            API_TEMPLATE_PREFIX + FileSpec.MOCK_SERVICE.getTemplateName(),
+            FileSpec.MOCK_SERVICE.getFileName());
 
         modelTemplateFiles.clear();
         modelTemplateFiles.put(MODEL_TEMPLATE, JAVA_EXT);
@@ -141,14 +155,18 @@ public class CefCodegen extends AbstractJavaCodegen {
 
     @Override
     public String apiFilename(String templateName, String tag) {
-        if (FileSpec.API_SERVICE.getTemplateName().equals(templateName)) {
-            return apiFileFolder() + File.separator + SERVICE_SUBDIR + File.separator
-                + toApiFilename(tag) + FileSpec.API_SERVICE.getFileName();
+        if (FileSpec.API_SERVICE.getTemplateName()
+            .equals(templateName)
+        ) {
+            return apiFileFolder()
+                + File.separator + SERVICE_SUBDIR
+                + File.separator + toApiFilename(tag)
+                + FileSpec.API_SERVICE.getFileName();
         }
         return super.apiFilename(templateName, tag);
     }
 
-    // ── Parameter processing ────────────────────────────────────────────
+    // ── Parameter processing 
 
     @Override
     public CodegenParameter fromParameter(Parameter parameter, Set<String> imports) {
@@ -157,7 +175,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         return param;
     }
 
-    // ── Model post-processing ───────────────────────────────────────────
+    // ── Model post-processing 
 
     @Override
     public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
@@ -178,7 +196,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         return result;
     }
 
-    // ── Supporting file data (server URLs) ──────────────────────────────
+    // ── Supporting file data (server URLs) 
 
     @Override
     public Map<String, Object> postProcessSupportingFileData(Map<String, Object> bundle) {

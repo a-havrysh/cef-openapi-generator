@@ -1,37 +1,35 @@
 package io.github.cef.codegen.processing;
 
 import io.swagger.v3.oas.models.media.Schema;
+import lombok.experimental.UtilityClass;
 import org.openapitools.codegen.CodegenParameter;
 
 import java.util.Set;
 
 /**
- * Extracts OpenAPI validation constraints from parameters and stores them
- * as vendor extensions (x-min-length, x-maximum, x-pattern, etc.)
- * for use in generated validation code.
+ * Extracts OpenAPI validation constraints from parameters
+ * and stores them as vendor extensions for generated validation code.
  */
-public final class ParameterConstraintExtractor {
+@UtilityClass
+public class ParameterConstraintExtractor {
 
-    /** All vendor extension keys that indicate validation is needed. */
-    private static final Set<String> VALIDATION_KEYS = Set.of(
+    private final Set<String> VALIDATION_KEYS = Set.of(
         "x-min-length", "x-max-length", "x-pattern",
-        "x-minimum", "x-maximum", "x-exclusive-minimum", "x-exclusive-maximum",
+        "x-minimum", "x-maximum",
+        "x-exclusive-minimum", "x-exclusive-maximum",
         "x-multiple-of", "x-has-enum-values",
-        "x-min-items", "x-max-items", "x-unique-items", "x-item-enum-values",
+        "x-min-items", "x-max-items",
+        "x-unique-items", "x-item-enum-values",
         "x-format"
     );
 
-    private ParameterConstraintExtractor() {}
-
-    /**
-     * Extracts all validation constraints from the parameter schema
-     * and stores them as vendor extensions on the CodegenParameter.
-     */
-    public static void extract(CodegenParameter param, Schema<?> schema) {
+    public void extract(CodegenParameter param, Schema<?> schema) {
         if (schema == null) return;
 
         if (param.isString) extractStringConstraints(param, schema);
-        if (param.isInteger || param.isLong || param.isNumber) extractNumericConstraints(param, schema);
+        if (param.isInteger || param.isLong || param.isNumber) {
+            extractNumericConstraints(param, schema);
+        }
         if (param.isArray) extractArrayConstraints(param, schema);
 
         extractNullable(param, schema);
@@ -39,14 +37,19 @@ public final class ParameterConstraintExtractor {
         markHasValidation(param);
     }
 
-    private static void extractStringConstraints(CodegenParameter param, Schema<?> schema) {
+    private void extractStringConstraints(
+        CodegenParameter param,
+        Schema<?> schema
+    ) {
         var format = schema.getFormat();
         if ("date".equals(format)) {
             param.vendorExtensions.put("x-is-date", true);
-            param.vendorExtensions.put("x-java-type", "java.time.LocalDate");
+            param.vendorExtensions.put(
+                "x-java-type", "java.time.LocalDate");
         } else if ("date-time".equals(format)) {
             param.vendorExtensions.put("x-is-date-time", true);
-            param.vendorExtensions.put("x-java-type", "java.time.OffsetDateTime");
+            param.vendorExtensions.put(
+                "x-java-type", "java.time.OffsetDateTime");
         } else if (format != null && !format.isEmpty()) {
             param.vendorExtensions.put("x-format", format);
         }
@@ -55,19 +58,28 @@ public final class ParameterConstraintExtractor {
         putIfNotNull(param, "x-max-length", schema.getMaxLength());
 
         if (schema.getPattern() != null) {
-            param.vendorExtensions.put("x-pattern", schema.getPattern().replace("\\", "\\\\"));
+            var escaped = schema.getPattern().replace("\\", "\\\\");
+            param.vendorExtensions.put("x-pattern", escaped);
         }
     }
 
-    private static void extractNumericConstraints(CodegenParameter param, Schema<?> schema) {
+    private void extractNumericConstraints(
+        CodegenParameter param,
+        Schema<?> schema
+    ) {
         putIfNotNull(param, "x-minimum", schema.getMinimum());
         putIfNotNull(param, "x-maximum", schema.getMaximum());
-        putIfNotNull(param, "x-exclusive-minimum", schema.getExclusiveMinimum());
-        putIfNotNull(param, "x-exclusive-maximum", schema.getExclusiveMaximum());
+        putIfNotNull(param, "x-exclusive-minimum",
+            schema.getExclusiveMinimum());
+        putIfNotNull(param, "x-exclusive-maximum",
+            schema.getExclusiveMaximum());
         putIfNotNull(param, "x-multiple-of", schema.getMultipleOf());
     }
 
-    private static void extractArrayConstraints(CodegenParameter param, Schema<?> schema) {
+    private void extractArrayConstraints(
+        CodegenParameter param,
+        Schema<?> schema
+    ) {
         putIfNotNull(param, "x-min-items", schema.getMinItems());
         putIfNotNull(param, "x-max-items", schema.getMaxItems());
         putIfNotNull(param, "x-unique-items", schema.getUniqueItems());
@@ -77,13 +89,19 @@ public final class ParameterConstraintExtractor {
         }
     }
 
-    private static void extractNullable(CodegenParameter param, Schema<?> schema) {
+    private void extractNullable(
+        CodegenParameter param,
+        Schema<?> schema
+    ) {
         if (Boolean.TRUE.equals(schema.getNullable())) {
             param.vendorExtensions.put("x-nullable", true);
         }
     }
 
-    private static void extractEnumValues(CodegenParameter param, Schema<?> schema) {
+    private void extractEnumValues(
+        CodegenParameter param,
+        Schema<?> schema
+    ) {
         if (schema.getEnum() == null || schema.getEnum().isEmpty()) return;
 
         var quoted = schema.getEnum().stream()
@@ -95,10 +113,14 @@ public final class ParameterConstraintExtractor {
         param.vendorExtensions.put("x-has-enum-values", true);
     }
 
-    private static void extractItemEnumValues(CodegenParameter param, Schema<?> itemsSchema) {
-        if (itemsSchema.getEnum() == null || itemsSchema.getEnum().isEmpty()) return;
+    private void extractItemEnumValues(
+        CodegenParameter param,
+        Schema<?> itemsSchema
+    ) {
+        var enums = itemsSchema.getEnum();
+        if (enums == null || enums.isEmpty()) return;
 
-        var quoted = itemsSchema.getEnum().stream()
+        var quoted = enums.stream()
             .map(v -> "\"" + v + "\"")
             .reduce((a, b) -> a + ", " + b)
             .orElse("");
@@ -107,13 +129,18 @@ public final class ParameterConstraintExtractor {
         param.vendorExtensions.put("x-item-enum-values", true);
     }
 
-    private static void markHasValidation(CodegenParameter param) {
-        boolean has = param.required || VALIDATION_KEYS.stream()
-            .anyMatch(param.vendorExtensions::containsKey);
+    private void markHasValidation(CodegenParameter param) {
+        boolean has = param.required
+            || VALIDATION_KEYS.stream()
+                .anyMatch(param.vendorExtensions::containsKey);
         param.vendorExtensions.put("x-has-validation", has);
     }
 
-    private static void putIfNotNull(CodegenParameter param, String key, Object value) {
+    private void putIfNotNull(
+        CodegenParameter param,
+        String key,
+        Object value
+    ) {
         if (value != null) param.vendorExtensions.put(key, value);
     }
 }

@@ -1,5 +1,7 @@
 package io.github.cef.codegen.processing;
 
+import lombok.experimental.UtilityClass;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.List;
@@ -9,9 +11,13 @@ import java.util.Map;
  * Detects Java types from values and formats them for code generation.
  * Also provides Java→Kotlin type conversion.
  */
-public final class TypeConverter {
+@UtilityClass
+public class TypeConverter {
 
-    private static final Map<Class<?>, String> TYPE_MAP = Map.of(
+    private final String DEFAULT_TYPE = "String";
+    private final String JAVA_MATH_PREFIX = "java.math.";
+
+    private final Map<Class<?>, String> TYPE_MAP = Map.of(
         Integer.class, "Integer",
         Long.class, "Long",
         Double.class, "Double",
@@ -21,25 +27,27 @@ public final class TypeConverter {
         BigInteger.class, "java.math.BigInteger"
     );
 
-    private TypeConverter() {}
-
-    /** Detects Java type name from the first non-null element in a list. Defaults to "String". */
-    public static String detectType(List<?> values) {
-        if (values == null || values.isEmpty()) return "String";
+    /**
+     * Detects Java type name from the first non-null element.
+     * Defaults to "String".
+     */
+    public String detectType(List<?> values) {
+        if (values == null || values.isEmpty()) return DEFAULT_TYPE;
         var first = values.get(0);
-        if (first == null) return "String";
-        return TYPE_MAP.getOrDefault(first.getClass(), "String");
+        if (first == null) return DEFAULT_TYPE;
+        return TYPE_MAP.getOrDefault(first.getClass(), DEFAULT_TYPE);
     }
 
-    /** Formats a value as a Java/Kotlin literal string based on its type. */
-    public static String formatLiteral(Object value, String type) {
+    /** Formats a value as a Java/Kotlin literal based on its type. */
+    public String formatLiteral(Object value, String type) {
         if (value == null) return "null";
 
         return switch (type) {
             case "String" -> quote(value.toString());
-            case "Integer", "Long", "Double", "Float", "Boolean" -> value.toString();
+            case "Integer", "Long", "Double", "Float", "Boolean" ->
+                value.toString();
             default -> {
-                if (type.startsWith("java.math.")) {
+                if (type.startsWith(JAVA_MATH_PREFIX)) {
                     yield "new " + type + "(\"" + value + "\")";
                 }
                 yield quote(value.toString());
@@ -47,8 +55,8 @@ public final class TypeConverter {
         };
     }
 
-    /** Replaces Java types with Kotlin equivalents in a type string. */
-    public static String kotlinify(String type) {
+    /** Replaces Java types with Kotlin equivalents. */
+    public String kotlinify(String type) {
         if (type == null) return null;
         return type
             .replace("java.util.List", "List")
@@ -60,8 +68,8 @@ public final class TypeConverter {
             .replaceAll("\\bVoid\\b", "Unit");
     }
 
-    /** Replaces Java collection constructors with Kotlin idioms in default values. */
-    public static String kotlinifyDefaultValue(String defaultValue) {
+    /** Replaces Java collection constructors with Kotlin idioms. */
+    public String kotlinifyDefaultValue(String defaultValue) {
         if (defaultValue == null) return null;
         return defaultValue
             .replace("new ArrayList<>()", "emptyList()")
@@ -72,7 +80,7 @@ public final class TypeConverter {
             .replace("new HashSet<", "mutableSetOf<");
     }
 
-    private static String quote(String value) {
+    private String quote(String value) {
         return "\"" + value.replace("\"", "\\\"") + "\"";
     }
 }

@@ -1,83 +1,90 @@
 package io.github.cef.codegen.processing;
 
+import lombok.experimental.UtilityClass;
 import org.openapitools.codegen.CodegenModel;
 
 import java.util.Set;
 
 /**
  * Filters unwanted imports from generated models.
- * Base implementation removes Swagger/OpenAPI annotations.
- * Kotlin subclass logic adds Java collection and built-in type filtering.
+ * Handles both Java (annotations) and Kotlin (built-in types).
  */
-public final class ImportFilter {
+@UtilityClass
+public class ImportFilter {
 
-    /** Substrings — any import containing these is filtered. */
-    private static final Set<String> JAVA_FILTER_CONTAINS = Set.of(
+    private final Set<String> JAVA_FILTER_CONTAINS = Set.of(
         "swagger", "JsonNullable", "oas.annotations"
     );
 
-    /** Exact simple names — only filter if the import's simple name matches exactly. */
-    private static final Set<String> JAVA_FILTER_EXACT = Set.of(
+    private final Set<String> JAVA_FILTER_EXACT = Set.of(
         "ApiModel", "ApiModelProperty", "Schema"
     );
 
-    /** Kotlin built-in types that never need importing. */
-    private static final Set<String> KOTLIN_BUILTIN_TYPES = Set.of(
+    private final Set<String> KOTLIN_BUILTIN_TYPES = Set.of(
         "Int", "Long", "Float", "Double", "Boolean", "String", "Any",
         "List", "Map", "Set", "Array", "Byte", "Short", "Char",
         "Unit", "Nothing", "Pair", "Triple"
     );
 
-    /** Java types that map to Kotlin built-ins and should be filtered. */
-    private static final Set<String> KOTLIN_FILTER_KEYWORDS = Set.of(
+    private final Set<String> KOTLIN_FILTER_KEYWORDS = Set.of(
         "java.util", "java.lang", "ArrayList", "HashMap",
         "LinkedHashMap", "HashSet", "Arrays", "Object"
     );
 
-    private ImportFilter() {}
+    private final Set<String> JAVA_COLLECTION_SIMPLE_NAMES = Set.of(
+        "ArrayList", "HashMap", "LinkedHashMap", "HashSet"
+    );
 
-    /** Removes annotation-related imports from a model (Java generator). */
-    public static void cleanupJavaImports(CodegenModel model) {
+    /** Removes annotation-related imports (Java generator). */
+    public void cleanupJavaImports(CodegenModel model) {
         if (model == null || model.imports == null) return;
-        model.imports.removeIf(ImportFilter::isJavaFilteredImport);
+        model.imports.removeIf(ImportFilter::isJavaFiltered);
     }
 
-    /** Removes annotation + Java type imports from a model (Kotlin generator). */
-    public static void cleanupKotlinImports(CodegenModel model) {
+    /** Removes annotation + Java type imports (Kotlin generator). */
+    public void cleanupKotlinImports(CodegenModel model) {
         if (model == null || model.imports == null) return;
-        model.imports.removeIf(imp -> isJavaFilteredImport(imp) || isKotlinFilteredImport(imp));
+        model.imports.removeIf(
+            imp -> isJavaFiltered(imp) || isKotlinFiltered(imp)
+        );
     }
 
-    /** Checks if import should be filtered for Kotlin, given the model package for self-import detection. */
-    public static boolean shouldFilterForKotlin(String importStr, String modelPackage) {
+    /** Full Kotlin filter including self-package detection. */
+    public boolean shouldFilterForKotlin(
+        String importStr,
+        String modelPackage
+    ) {
         if (importStr == null || importStr.isEmpty()) return true;
-        if (isJavaFilteredImport(importStr)) return true;
-        if (isKotlinFilteredImport(importStr)) return true;
+        if (isJavaFiltered(importStr)) return true;
+        if (isKotlinFiltered(importStr)) return true;
 
-        // Self-package imports of built-in type names (e.g., com.example.dto.Int)
-        if (modelPackage != null && importStr.startsWith(modelPackage + ".")) {
+        if (modelPackage != null
+            && importStr.startsWith(modelPackage + ".")
+        ) {
             var simpleName = simpleName(importStr);
-            if (KOTLIN_BUILTIN_TYPES.contains(simpleName)) return true;
-            return Set.of("ArrayList", "HashMap", "LinkedHashMap", "HashSet").contains(simpleName);
+            return KOTLIN_BUILTIN_TYPES.contains(simpleName)
+                || JAVA_COLLECTION_SIMPLE_NAMES.contains(simpleName);
         }
 
         return false;
     }
 
-    private static boolean isJavaFilteredImport(String importStr) {
+    private boolean isJavaFiltered(String importStr) {
         if (importStr == null || importStr.isEmpty()) return true;
-        if (JAVA_FILTER_CONTAINS.stream().anyMatch(importStr::contains)) return true;
-        var simpleName = simpleName(importStr);
-        return JAVA_FILTER_EXACT.contains(simpleName);
+        if (JAVA_FILTER_CONTAINS.stream().anyMatch(importStr::contains)) {
+            return true;
+        }
+        return JAVA_FILTER_EXACT.contains(simpleName(importStr));
     }
 
-    private static boolean isKotlinFilteredImport(String importStr) {
+    private boolean isKotlinFiltered(String importStr) {
         var simpleName = simpleName(importStr);
-        if (KOTLIN_BUILTIN_TYPES.contains(simpleName) || KOTLIN_BUILTIN_TYPES.contains(importStr)) return true;
+        if (KOTLIN_BUILTIN_TYPES.contains(simpleName)) return true;
+        if (KOTLIN_BUILTIN_TYPES.contains(importStr)) return true;
         return KOTLIN_FILTER_KEYWORDS.stream().anyMatch(importStr::contains);
     }
 
-    private static String simpleName(String fqn) {
+    private String simpleName(String fqn) {
         int dot = fqn.lastIndexOf('.');
         return dot >= 0 ? fqn.substring(dot + 1) : fqn;
     }

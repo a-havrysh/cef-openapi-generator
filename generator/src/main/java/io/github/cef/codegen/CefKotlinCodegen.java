@@ -24,7 +24,8 @@ import java.util.Map;
 public class CefKotlinCodegen extends CefCodegen {
 
     private static final String GENERATOR_NAME = "cef-kotlin";
-    private static final String GENERATOR_HELP = "Generates idiomatic Kotlin code for CEF-based OpenAPI APIs";
+    private static final String GENERATOR_HELP =
+        "Generates idiomatic Kotlin code for CEF-based OpenAPI APIs";
     private static final String TEMPLATE_DIR = "cef-kotlin";
     private static final String KOTLIN_SOURCE_FOLDER = "src/main/kotlin";
 
@@ -55,7 +56,7 @@ public class CefKotlinCodegen extends CefCodegen {
         return GENERATOR_HELP;
     }
 
-    // ── Type system ─────────────────────────────────────────────────────
+    // ── Type system 
 
     private void configureKotlinTypes() {
         typeMapping.put("integer", "Int");
@@ -93,10 +94,11 @@ public class CefKotlinCodegen extends CefCodegen {
 
     @Override
     public String toDefaultValue(Schema schema) {
-        return TypeConverter.kotlinifyDefaultValue(super.toDefaultValue(schema));
+        return TypeConverter.kotlinifyDefaultValue(
+            super.toDefaultValue(schema));
     }
 
-    // ── Template configuration ──────────────────────────────────────────
+    // ── Template configuration 
 
     @Override
     public void processOpts() {
@@ -106,7 +108,9 @@ public class CefKotlinCodegen extends CefCodegen {
         modelTemplateFiles.put(MODEL_TEMPLATE, KOTLIN_EXT);
 
         apiTemplateFiles.clear();
-        apiTemplateFiles.put(API_TEMPLATE_PREFIX + FileSpec.API_SERVICE.getTemplateName(), FileSpec.API_SERVICE.kotlinFileName());
+        apiTemplateFiles.put(
+            API_TEMPLATE_PREFIX + FileSpec.API_SERVICE.getTemplateName(),
+            FileSpec.API_SERVICE.kotlinFileName());
 
         modelDocTemplateFiles.clear();
         modelDocTemplateFiles.put(MODEL_DOC_TEMPLATE, MARKDOWN_EXT);
@@ -129,7 +133,9 @@ public class CefKotlinCodegen extends CefCodegen {
 
             var dest = file.getDestinationFilename();
             if (dest.endsWith(JAVA_EXT)) {
-                var ktFile = new SupportingFile(template, file.getFolder(), dest.replace(JAVA_EXT, KOTLIN_EXT));
+                var ktDest = dest.replace(JAVA_EXT, KOTLIN_EXT);
+                var ktFile = new SupportingFile(
+                    template, file.getFolder(), ktDest);
                 if (!file.isCanOverwrite()) ktFile.doNotOverwrite();
                 kotlinFiles.add(ktFile);
             } else {
@@ -150,7 +156,7 @@ public class CefKotlinCodegen extends CefCodegen {
         return super.toApiFilename(name).replace(JAVA_EXT, KOTLIN_EXT);
     }
 
-    // ── Model post-processing ───────────────────────────────────────────
+    // ── Model post-processing 
 
     @Override
     public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
@@ -172,7 +178,9 @@ public class CefKotlinCodegen extends CefCodegen {
                 model.vars.forEach(this::kotlinifyProperty);
             }
             if (model.imports != null) {
-                model.imports.removeIf(imp -> ImportFilter.shouldFilterForKotlin(imp, modelPackage()));
+                model.imports.removeIf(imp ->
+                    ImportFilter.shouldFilterForKotlin(
+                        imp, modelPackage()));
             }
 
             kotlinifyEnumFieldTypes(model);
@@ -181,7 +189,7 @@ public class CefKotlinCodegen extends CefCodegen {
         return result;
     }
 
-    // ── Kotlin-specific transformations ─────────────────────────────────
+    // ── Kotlin-specific transformations 
 
     private void escapeKotlinIdentifiers(CodegenProperty property) {
         if (property.baseName != null && property.baseName.contains(DOLLAR)) {
