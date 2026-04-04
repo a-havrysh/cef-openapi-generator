@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "io.github.cef"
-version = "3.1.0"  // Major refactoring: modern structure, consistent naming, Kotlin idioms
+version = "3.1.1"
 
 dependencies {
     implementation("org.openapitools:openapi-generator:7.21.0")

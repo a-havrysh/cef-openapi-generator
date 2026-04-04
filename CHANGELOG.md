@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.1] - 2026-04-04
+
+### Code Quality
+- `@UtilityClass` (Lombok) replaces manual private constructors in all utility classes
+- Google Java Style: all production code ≤100 chars per line
+- Static imports for enum constants (`API_SERVICE`, `MOCK_SERVICE`), factory methods (`newString`), and constants (`SERIALIZABLE_MODEL`, `ENUM_FIELDS_KEY`)
+- `propagateBooleanProperty(key, templateKey)` simplified to `propagateBoolean(key)` (params were always identical)
+- `CliOption` import replaces FQN usage; `Arrays.asList()` → `List.of()`
+
+### Templates
+- Added doc templates: `api_doc.mustache`, `model_doc.mustache` (Markdown API/model documentation)
+- Added test templates: `api_test.mustache`, `model_test.mustache` (JUnit 5 test stubs)
+- Added `README.mustache` for generated code (endpoint table, model links)
+- Total: 71 templates (Java + Kotlin, code + docs + tests + README)
+
+### Project Structure
+- Moved community docs to `docs/`: CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, TESTING, MIGRATION
+- Removed dead templates (Java doc/test, Kotlin api/model stubs)
+- Removed non-functional `generate-samples.sh`
+- Clean root: only README, LICENSE, CHANGELOG + build files
+- Added `.editorconfig`, `.gitignore` for examples
+
+### configOptions
+- `serializableModel`: `implements Serializable` / `: Serializable`
+- `containerDefaultToNull`: null instead of `emptyList()`/`emptyMap()`
+- `generateBuilders`: conditional Builder pattern (Java only)
+- `generateConstructorWithAllArgs`: all-args constructor (Java only)
+- `additionalModelTypeAnnotations` / `additionalEnumTypeAnnotations`: custom class-level annotations
+- `dateLibrary`: inherited from AbstractJavaCodegen
+
+### Documentation
+- README: Maven plugin example, CLI usage, config-help, `.openapi-generator-ignore`, Troubleshooting/FAQ
+- Full configOptions table (12 options)
+- GitHub: issue/PR templates, CI workflow, SECURITY.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md
+
+### Bug Fixes
+- `TypeConverter.kotlinify()`: word-boundary regex prevents `ObjectMapper`→`AnyMapper`, `BigInteger`→`BigInt`
+- `ImportFilter`: exact match for `Schema`/`ApiModel` prevents filtering `SchemaValidator`
+- `EnumFieldProcessor`: `withValueField()` returns new map instead of mutating parameter
+- Kotlin enum field types kotlinified (`Integer`→`Int`)
+- Optional query/header/cookie params nullable in Kotlin service interfaces (`String?`)
+- Java `UrlFilterInterceptor` updated to v2.0+ API
+
+---
+
 ## [3.1.0] - 2026-04-04
 
 ### Kotlin Generator — Complete Rewrite
@@ -485,6 +530,7 @@ See [MIGRATION.md](docs/MIGRATION.md) for detailed migration guide from v1.x to 
 
 | Version | Date | Key Changes |
 |---------|------|-------------|
+| **3.1.1** | 2026-04-04 | Doc/test templates, configOptions, code quality, bug fixes |
 | **3.1.0** | 2026-04-04 | Idiomatic Kotlin codegen, SRP architecture refactoring, dependency updates |
 | **3.0.0** | 2026-01-12 | Major refactoring, template reorganization, complete OpenAPI validation |
 | **2.0.0** | 2026-01-11 | Breaking: simplified interceptors, type-specific exception handlers, validation |

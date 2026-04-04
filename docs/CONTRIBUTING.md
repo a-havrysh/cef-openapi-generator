@@ -94,7 +94,7 @@ Add support for X configOption
 # In your project, use mavenLocal():
 buildscript {
     repositories { mavenLocal() }
-    dependencies { classpath("io.github.cef:generator:3.1.0") }
+    dependencies { classpath("io.github.cef:generator:3.1.1") }
 }
 ```
 

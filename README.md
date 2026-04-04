@@ -51,7 +51,7 @@ repositories {
 ```kotlin
 buildscript {
     repositories { mavenLocal() }
-    dependencies { classpath("io.github.cef:generator:3.1.0") }
+    dependencies { classpath("io.github.cef:generator:3.1.1") }
 }
 
 plugins {
@@ -404,7 +404,7 @@ io.github.cef.codegen/
 
 **Generator not found: `cef-kotlin`**
 ```
-Could not find io.github.cef:generator:3.1.0
+Could not find io.github.cef:generator:3.1.1
 ```
 → Run `./gradlew :generator:publishToMavenLocal` in the generator project, and add `mavenLocal()` to your `buildscript.repositories`.
 
@@ -448,7 +448,7 @@ See [TESTING.md](docs/TESTING.md) for details.
 
 ## Version
 
-**Current: 3.1.0** — [CHANGELOG.md](CHANGELOG.md)
+**Current: 3.1.1** — [CHANGELOG.md](CHANGELOG.md)
 
 Upgrading? See [MIGRATION.md](docs/MIGRATION.md).
 
