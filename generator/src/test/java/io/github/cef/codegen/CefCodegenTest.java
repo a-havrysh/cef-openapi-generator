@@ -367,10 +367,9 @@ class CefCodegenTest {
     }
 
     @Test
-    void testEnumFieldDetection() {
-        codegen.processOpts();
-        // Enum field detection is tested via postProcessModels
-        assertNotNull(codegen);
+    void testFileSpecKotlinFileName() {
+        assertEquals("Service.kt", FileSpec.API_SERVICE.kotlinFileName());
+        assertEquals("ApiRequest.kt", FileSpec.API_REQUEST.kotlinFileName());
     }
 
     @Test
@@ -532,14 +531,19 @@ class CefCodegenTest {
     }
 
     @Test
-    void testUpdateCodegenPropertyEnum() {
-        org.openapitools.codegen.CodegenProperty property = new org.openapitools.codegen.CodegenProperty();
-        property.isEnum = true;
+    void testGeneratorLayerRegistersAllLayers() {
+        var fileNames = codegen.supportingFiles().stream()
+            .map(sf -> sf.getDestinationFilename())
+            .toList();
 
-        codegen.updateCodegenPropertyEnum(property);
-
-        // Method delegates to super - verify it doesn't throw
-        assertNotNull(property);
+        // Verify files from each layer exist
+        assertTrue(fileNames.stream().anyMatch(f -> f.contains("HttpMethod")));
+        assertTrue(fileNames.stream().anyMatch(f -> f.contains("RouteTree")));
+        assertTrue(fileNames.stream().anyMatch(f -> f.contains("ApiCefRequestHandler")));
+        assertTrue(fileNames.stream().anyMatch(f -> f.contains("ApiException")));
+        assertTrue(fileNames.stream().anyMatch(f -> f.contains("ParameterValidator")));
+        assertTrue(fileNames.stream().anyMatch(f -> f.contains("RequestInterceptor")));
+        assertTrue(fileNames.stream().anyMatch(f -> f.contains("ContentTypeResolver")));
     }
 
     @Test
@@ -676,6 +680,12 @@ class CefCodegenTest {
         model.allowableValues = new HashMap<>();
         model.allowableValues.put("values", Arrays.asList("ACTIVE", "INACTIVE"));
 
+        // Build enumVars like OpenAPI Generator does
+        var enumVars = new ArrayList<Map<String, Object>>();
+        enumVars.add(new HashMap<>(Map.of("name", "ACTIVE", "value", "\"ACTIVE\"")));
+        enumVars.add(new HashMap<>(Map.of("name", "INACTIVE", "value", "\"INACTIVE\"")));
+        model.allowableValues.put("enumVars", enumVars);
+
         // Add multiple vendor extension fields with different types
         model.vendorExtensions = new HashMap<>();
         model.vendorExtensions.put("x-enum-field-priority", Arrays.asList(1, 2));  // Integer
@@ -692,8 +702,8 @@ class CefCodegenTest {
 
         assertNotNull(result);
         // Verify enum fields were processed
-        assertTrue(model.vendorExtensions.containsKey("enumFields") ||
-                   model.vendorExtensions.size() > 0);
+        assertTrue(model.vendorExtensions.containsKey("enumFields"));
+        assertTrue((Boolean) model.vendorExtensions.get("hasEnumFields"));
     }
 
     @Test
