@@ -237,7 +237,7 @@ Place `.openapi-generator-ignore` in the output directory to prevent overwriting
 **/*.md
 ```
 
-See [.openapi-generator-ignore.example](.openapi-generator-ignore.example) for a full template.
+See [docs/.openapi-generator-ignore.example](docs/.openapi-generator-ignore.example) for a full template.
 
 ## Generated Code
 
@@ -430,7 +430,7 @@ java -cp generator.jar org.openapitools.codegen.OpenAPIGenerator config-help -g 
 ```
 
 **How do I prevent regeneration from overwriting my files?**
-→ Place a `.openapi-generator-ignore` file in the output directory. See [.openapi-generator-ignore.example](.openapi-generator-ignore.example).
+→ Place a `.openapi-generator-ignore` file in the output directory. See [docs/.openapi-generator-ignore.example](docs/.openapi-generator-ignore.example).
 
 **Can I use a custom template for one file?**
 → Yes. Set `templateDir` in your Gradle config to a directory with your overrides. Only files present in your directory will override; others use the embedded templates.
@@ -444,13 +444,13 @@ java -cp generator.jar org.openapitools.codegen.OpenAPIGenerator config-help -g 
 ./gradlew :generator:check         # Tests + coverage verification (90% threshold)
 ```
 
-See [TESTING.md](TESTING.md) for details.
+See [TESTING.md](docs/TESTING.md) for details.
 
 ## Version
 
 **Current: 3.1.0** — [CHANGELOG.md](CHANGELOG.md)
 
-Upgrading? See [MIGRATION.md](MIGRATION.md).
+Upgrading? See [MIGRATION.md](docs/MIGRATION.md).
 
 ## License
 

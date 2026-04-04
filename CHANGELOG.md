@@ -5,7 +5,7 @@ All notable changes to the CEF OpenAPI Generator will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**Upgrading?** See [MIGRATION.md](MIGRATION.md) for detailed migration guides.
+**Upgrading?** See [MIGRATION.md](docs/MIGRATION.md) for detailed migration guides.
 
 ---
 
@@ -195,7 +195,7 @@ codegen/
 
 ## [2.0.0] - 2026-01-11
 
-**⚠️ BREAKING CHANGES** - See [MIGRATION.md](MIGRATION.md) for migration guide.
+**⚠️ BREAKING CHANGES** - See [MIGRATION.md](docs/MIGRATION.md) for migration guide.
 
 ### Breaking Changes
 - **RequestInterceptor interface simplified**: `beforeHandle()` and `onError()` methods now accept only `ApiRequest` (removed `pathVariables` parameter)
@@ -255,13 +255,13 @@ codegen/
 - Removed wildcard imports from generated models
 
 ### Upgrading
-See [MIGRATION.md](MIGRATION.md) for detailed migration guide from v1.x to v2.0.0.
+See [MIGRATION.md](docs/MIGRATION.md) for detailed migration guide from v1.x to v2.0.0.
 
 ---
 
 ## [1.1.0] - 2026-01-10
 
-**⚠️ Breaking Changes** - See [MIGRATION.md](MIGRATION.md) for migration guide.
+**⚠️ Breaking Changes** - See [MIGRATION.md](docs/MIGRATION.md) for migration guide.
 
 ### Added
 - **Type-Safe Parameters**: Query parameters, path variables, and request bodies now automatically extracted with proper typing
@@ -477,7 +477,7 @@ See [MIGRATION.md](MIGRATION.md) for detailed migration guide from v1.x to v2.0.
 - Mustache templates for code generation
 - MIT License
 
-**See [MIGRATION.md](MIGRATION.md) for detailed migration guide from 1.0.x to 1.1.0.**
+**See [MIGRATION.md](docs/MIGRATION.md) for detailed migration guide from 1.0.x to 1.1.0.**
 
 ---
 
@@ -515,7 +515,7 @@ See [MIGRATION.md](MIGRATION.md) for detailed migration guide from v1.x to v2.0.
 
 - **Issues**: https://github.com/a-havrysh/cef-openapi-generator/issues
 - **Documentation**: [README.md](README.md)
-- **Testing Guide**: [TESTING.md](TESTING.md)
+- **Testing Guide**: [TESTING.md](docs/TESTING.md)
 - **Example Project**: [example/README.md](example/README.md)
 
 ---

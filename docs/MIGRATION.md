@@ -515,9 +515,9 @@ If migration issues occur:
 
 ### Support
 
-- **Documentation**: [README.md](README.md)
+- **Documentation**: [README.md](../README.md)
 - **Testing Guide**: [TESTING.md](TESTING.md)
-- **Changelog**: [CHANGELOG.md](CHANGELOG.md)
+- **Changelog**: [CHANGELOG.md](../CHANGELOG.md)
 - **Issues**: https://github.com/a-havrysh/cef-openapi-generator/issues
 
 ---
