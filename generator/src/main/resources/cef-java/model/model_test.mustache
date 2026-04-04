@@ -1,0 +1,51 @@
+package {{package}};
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Tests for {{classname}}.
+ * Auto-generated from OpenAPI specification — customize as needed.
+ */
+@DisplayName("{{classname}} Tests")
+class {{classname}}Test {
+
+    private final ObjectMapper mapper = new ObjectMapper();
+
+{{#models}}
+{{#model}}
+{{#isEnum}}
+    @Test
+    @DisplayName("Enum has all expected values")
+    void testEnumValues() {
+        assertEquals({{#allowableValues}}{{#enumVars}}{{#-last}}{{-index}}{{/-last}}{{/enumVars}}{{/allowableValues}}, {{classname}}.values().length);
+        {{#allowableValues}}
+        {{#enumVars}}
+        assertNotNull({{classname}}.{{name}});
+        {{/enumVars}}
+        {{/allowableValues}}
+    }
+{{/isEnum}}
+{{^isEnum}}
+    @Test
+    @DisplayName("Can create instance with all fields")
+    void testConstruction() {
+        var obj = new {{classname}}({{#vars}}{{#defaultValue}}{{{.}}}{{/defaultValue}}{{^defaultValue}}null{{/defaultValue}}{{^-last}}, {{/-last}}{{/vars}});
+        assertNotNull(obj);
+    }
+
+    @Test
+    @DisplayName("JSON serialization roundtrip")
+    void testJsonRoundtrip() throws Exception {
+        var obj = new {{classname}}({{#vars}}{{#defaultValue}}{{{.}}}{{/defaultValue}}{{^defaultValue}}null{{/defaultValue}}{{^-last}}, {{/-last}}{{/vars}});
+        var json = mapper.writeValueAsString(obj);
+        var deserialized = mapper.readValue(json, {{classname}}.class);
+        assertNotNull(deserialized);
+    }
+{{/isEnum}}
+{{/model}}
+{{/models}}
+}

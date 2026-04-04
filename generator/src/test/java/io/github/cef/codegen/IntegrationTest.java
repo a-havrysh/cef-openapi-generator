@@ -44,6 +44,20 @@ class IntegrationTest {
             assertFileContains(javaRoot, "com/example/api/UserApiService.java", "getUser");
             assertFileContains(javaRoot, "com/example/api/UserApiService.java", "deleteUser");
 
+            // Tests
+            assertFileExists(outputDir.resolve("src/test/java"),
+                "com/example/api/dto/UserTest.java");
+            assertFileExists(outputDir.resolve("src/test/java"),
+                "com/example/api/dto/RoleTest.java");
+
+            // Docs
+            assertFileExists(outputDir, "docs/User.md");
+            assertFileExists(outputDir, "docs/Role.md");
+            assertFileExists(outputDir, "docs/UserApi.md");
+
+            // README
+            assertFileExists(outputDir, "README.md");
+
             // Infrastructure layers
             assertFileExists(javaRoot, "com/example/api/protocol/ApiRequest.java");
             assertFileExists(javaRoot, "com/example/api/protocol/ApiResponse.java");
@@ -90,8 +104,20 @@ class IntegrationTest {
             assertFileExists(ktRoot, "com/example/api/dto/CreateUserRequest.kt");
             assertFileExists(ktRoot, "com/example/api/dto/Role.kt");
 
-            // No .java files should exist
+            // No .java files should exist in Kotlin source
             assertNoJavaFiles(ktRoot);
+
+            // Tests (.kt) — OpenAPI Generator places tests in src/test/java even for Kotlin
+            var testRoot = outputDir.resolve("src/test/java");
+            if (!Files.isDirectory(testRoot)) testRoot = outputDir.resolve("src/test/kotlin");
+            assertFileExists(testRoot, "com/example/api/dto/UserTest.kt");
+
+            // Docs
+            assertFileExists(outputDir, "docs/User.md");
+            assertFileExists(outputDir, "docs/UserApi.md");
+
+            // README
+            assertFileExists(outputDir, "README.md");
         }
 
         @Test

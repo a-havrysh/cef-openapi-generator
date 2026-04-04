@@ -83,6 +83,10 @@ public class CefCodegen extends AbstractJavaCodegen {
         applyGenerationOptions();
         configureTemplates();
         GeneratorLayer.registerAll(supportingFiles, apiPackage, sourceFolder);
+
+        // README for generated code
+        supportingFiles.add(new org.openapitools.codegen.SupportingFile("README.mustache", "", "README.md"));
+
     }
 
     private void applyModelNamingOptions() {
@@ -125,11 +129,17 @@ public class CefCodegen extends AbstractJavaCodegen {
         modelTemplateFiles.clear();
         modelTemplateFiles.put("model/model.mustache", ".java");
 
-        // No doc/test templates — users control via generateApiTests/generateModelTests
         modelDocTemplateFiles.clear();
+        modelDocTemplateFiles.put("model/model_doc.mustache", ".md");
+
         modelTestTemplateFiles.clear();
+        modelTestTemplateFiles.put("model/model_test.mustache", ".java");
+
         apiDocTemplateFiles.clear();
+        apiDocTemplateFiles.put("api/api_doc.mustache", ".md");
+
         apiTestTemplateFiles.clear();
+        apiTestTemplateFiles.put("api/api_test.mustache", ".java");
     }
 
     @Override

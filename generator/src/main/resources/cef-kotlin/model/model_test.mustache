@@ -1,0 +1,67 @@
+package {{package}}
+
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.Assertions.*
+
+/**
+ * Tests for {{classname}}.
+ * Auto-generated from OpenAPI specification — customize as needed.
+ */
+@DisplayName("{{classname}} Tests")
+class {{classname}}Test {
+
+    private val mapper = jacksonObjectMapper()
+
+{{#models}}
+{{#model}}
+{{#isEnum}}
+    @Test
+    @DisplayName("Enum has all expected values")
+    fun `test enum values`() {
+        val values = {{classname}}.entries
+        assertTrue(values.isNotEmpty())
+        {{#allowableValues}}
+        {{#enumVars}}
+        assertNotNull({{classname}}.{{name}})
+        {{/enumVars}}
+        {{/allowableValues}}
+    }
+
+    @Test
+    @DisplayName("Enum value property is set")
+    fun `test enum value property`() {
+        {{classname}}.entries.forEach { entry ->
+            assertNotNull(entry.value, "Value should not be null for $entry")
+        }
+    }
+{{/isEnum}}
+{{^isEnum}}
+    @Test
+    @DisplayName("Data class can be created with defaults")
+    fun `test construction`() {
+        val obj = {{classname}}({{#vars}}{{#required}}{{#defaultValue}}{{{.}}}{{/defaultValue}}{{^defaultValue}}TODO("provide {{name}}"){{/defaultValue}}{{/required}}{{^required}}{{/required}}{{^-last}}, {{/-last}}{{/vars}})
+        assertNotNull(obj)
+    }
+
+    @Test
+    @DisplayName("JSON serialization roundtrip")
+    fun `test json roundtrip`() {
+        val obj = {{classname}}({{#vars}}{{#required}}{{#defaultValue}}{{{.}}}{{/defaultValue}}{{^defaultValue}}TODO("provide {{name}}"){{/defaultValue}}{{/required}}{{^required}}{{/required}}{{^-last}}, {{/-last}}{{/vars}})
+        val json = mapper.writeValueAsString(obj)
+        val deserialized = mapper.readValue(json, {{classname}}::class.java)
+        assertEquals(obj, deserialized)
+    }
+
+    @Test
+    @DisplayName("Data class copy works")
+    fun `test copy`() {
+        val obj = {{classname}}({{#vars}}{{#required}}{{#defaultValue}}{{{.}}}{{/defaultValue}}{{^defaultValue}}TODO("provide {{name}}"){{/defaultValue}}{{/required}}{{^required}}{{/required}}{{^-last}}, {{/-last}}{{/vars}})
+        val copy = obj.copy()
+        assertEquals(obj, copy)
+    }
+{{/isEnum}}
+{{/model}}
+{{/models}}
+}

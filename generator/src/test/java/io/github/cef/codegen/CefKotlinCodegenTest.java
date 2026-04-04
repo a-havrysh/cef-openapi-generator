@@ -78,14 +78,18 @@ class CefKotlinCodegenTest {
             assertTrue(values.stream().allMatch(v -> v.endsWith(".kt")));
         }
 
-        @Test void noDocTemplates() {
-            assertTrue(codegen.modelDocTemplateFiles().isEmpty());
-            assertTrue(codegen.apiDocTemplateFiles().isEmpty());
+        @Test void hasDocTemplates() {
+            assertFalse(codegen.modelDocTemplateFiles().isEmpty());
+            assertFalse(codegen.apiDocTemplateFiles().isEmpty());
+            assertTrue(codegen.modelDocTemplateFiles().containsValue(".md"));
+            assertTrue(codegen.apiDocTemplateFiles().containsValue(".md"));
         }
 
-        @Test void noTestTemplates() {
-            assertTrue(codegen.modelTestTemplateFiles().isEmpty());
-            assertTrue(codegen.apiTestTemplateFiles().isEmpty());
+        @Test void hasTestTemplates() {
+            assertFalse(codegen.modelTestTemplateFiles().isEmpty());
+            assertFalse(codegen.apiTestTemplateFiles().isEmpty());
+            assertTrue(codegen.modelTestTemplateFiles().containsValue(".kt"));
+            assertTrue(codegen.apiTestTemplateFiles().containsValue(".kt"));
         }
 
         @Test void supportingFilesAreKt() {

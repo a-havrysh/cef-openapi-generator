@@ -1,0 +1,51 @@
+# {{classname}}
+
+{{#description}}{{{.}}}{{/description}}
+
+All URIs are relative to *{{basePath}}*
+
+| Method | HTTP | Path | Description |
+|--------|------|------|-------------|
+{{#operations}}
+{{#operation}}
+| [**{{operationId}}**](#{{operationId}}) | **{{httpMethod}}** | {{path}} | {{summary}} |
+{{/operation}}
+{{/operations}}
+
+{{#operations}}
+{{#operation}}
+## {{operationId}}
+
+> {{#returnType}}{{.}} {{/returnType}}{{operationId}}({{#allParams}}{{paramName}}{{^-last}}, {{/-last}}{{/allParams}})
+
+{{summary}}
+
+{{#notes}}{{{.}}}{{/notes}}
+
+### Parameters
+
+{{#hasParams}}
+| Name | Type | In | Required | Description |
+|------|------|----|----------|-------------|
+{{#allParams}}
+| **{{paramName}}** | {{#isPrimitiveType}}**{{dataType}}**{{/isPrimitiveType}}{{^isPrimitiveType}}[**{{dataType}}**]({{baseType}}.md){{/isPrimitiveType}} | {{#isPathParam}}path{{/isPathParam}}{{#isQueryParam}}query{{/isQueryParam}}{{#isHeaderParam}}header{{/isHeaderParam}}{{#isBodyParam}}body{{/isBodyParam}} | {{#required}}Yes{{/required}}{{^required}}No{{/required}} | {{description}} |
+{{/allParams}}
+{{/hasParams}}
+{{^hasParams}}
+This endpoint does not need any parameter.
+{{/hasParams}}
+
+### Return type
+
+{{#returnType}}[**{{.}}**]({{returnBaseType}}.md){{/returnType}}{{^returnType}}void{{/returnType}}
+
+### HTTP response codes
+
+| Code | Description |
+|------|-------------|
+{{#responses}}
+| **{{code}}** | {{message}} |
+{{/responses}}
+
+{{/operation}}
+{{/operations}}

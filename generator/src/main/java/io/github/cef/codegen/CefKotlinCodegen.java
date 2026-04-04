@@ -106,11 +106,17 @@ public class CefKotlinCodegen extends CefCodegen {
         apiTemplateFiles.clear();
         apiTemplateFiles.put("api/" + FileSpec.API_SERVICE.getTemplateName(), FileSpec.API_SERVICE.kotlinFileName());
 
-        // No docs/tests
+        // Kotlin doc templates (Markdown — same format as Java)
         modelDocTemplateFiles.clear();
-        modelTestTemplateFiles.clear();
+        modelDocTemplateFiles.put("model/model_doc.mustache", ".md");
         apiDocTemplateFiles.clear();
+        apiDocTemplateFiles.put("api/api_doc.mustache", ".md");
+
+        // Kotlin test templates
+        modelTestTemplateFiles.clear();
+        modelTestTemplateFiles.put("model/model_test.mustache", ".kt");
         apiTestTemplateFiles.clear();
+        apiTestTemplateFiles.put("api/api_test.mustache", ".kt");
 
         // Convert supporting files: .java → .kt, skip MockService
         convertSupportingFilesToKotlin();
