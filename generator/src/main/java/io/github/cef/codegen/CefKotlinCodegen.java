@@ -12,7 +12,6 @@ import org.openapitools.codegen.model.ModelMap;
 import org.openapitools.codegen.model.ModelsMap;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +55,7 @@ public class CefKotlinCodegen extends CefCodegen {
         return GENERATOR_HELP;
     }
 
-    // ── Type system 
+    // ── Type system
 
     private void configureKotlinTypes() {
         typeMapping.put("integer", "Int");
@@ -81,7 +80,7 @@ public class CefKotlinCodegen extends CefCodegen {
 
         importMapping.clear();
 
-        languageSpecificPrimitives.addAll(Arrays.asList(
+        languageSpecificPrimitives.addAll(List.of(
             "Int", "Long", "Float", "Double", "Boolean", "String", "Any",
             "List", "Map", "Set", "ByteArray", "Byte", "Short", "Char", "Unit"
         ));
@@ -98,7 +97,7 @@ public class CefKotlinCodegen extends CefCodegen {
             super.toDefaultValue(schema));
     }
 
-    // ── Template configuration 
+    // ── Template configuration
 
     @Override
     public void processOpts() {
@@ -156,7 +155,7 @@ public class CefKotlinCodegen extends CefCodegen {
         return super.toApiFilename(name).replace(JAVA_EXT, KOTLIN_EXT);
     }
 
-    // ── Model post-processing 
+    // ── Model post-processing
 
     @Override
     public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
@@ -189,7 +188,7 @@ public class CefKotlinCodegen extends CefCodegen {
         return result;
     }
 
-    // ── Kotlin-specific transformations 
+    // ── Kotlin-specific transformations
 
     private void escapeKotlinIdentifiers(CodegenProperty property) {
         if (property.baseName != null && property.baseName.contains(DOLLAR)) {

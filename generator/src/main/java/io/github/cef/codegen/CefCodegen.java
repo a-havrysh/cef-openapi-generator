@@ -7,6 +7,7 @@ import io.github.cef.codegen.processing.ImportFilter;
 import io.github.cef.codegen.processing.ParameterConstraintExtractor;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.servers.Server;
+import org.openapitools.codegen.CliOption;
 import org.openapitools.codegen.CodegenConstants;
 import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.CodegenParameter;
@@ -68,9 +69,9 @@ public class CefCodegen extends AbstractJavaCodegen {
         setOpenApiNullable(false);
         setUseBeanValidation(false);
 
-        cliOptions.add(org.openapitools.codegen.CliOption.newString(OPT_MODEL_SUFFIX,
+        cliOptions.add(CliOption.newString(OPT_MODEL_SUFFIX,
             "Suffix to append to all model class names (e.g., 'Dto' -> TaskDto)"));
-        cliOptions.add(org.openapitools.codegen.CliOption.newString(OPT_MODEL_PREFIX,
+        cliOptions.add(CliOption.newString(OPT_MODEL_PREFIX,
             "Prefix to prepend to all model class names"));
     }
 
@@ -84,7 +85,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         return GENERATOR_HELP;
     }
 
-    // ── Template configuration 
+    // ── Template configuration
 
     @Override
     public void processOpts() {
@@ -108,23 +109,17 @@ public class CefCodegen extends AbstractJavaCodegen {
     }
 
     private void applyGenerationOptions() {
-        propagateBooleanProperty(
-            CodegenConstants.SERIALIZABLE_MODEL,
-            CodegenConstants.SERIALIZABLE_MODEL);
-        propagateBooleanProperty(
-            OPT_CONTAINER_DEFAULT_TO_NULL,
-            OPT_CONTAINER_DEFAULT_TO_NULL);
-        propagateBooleanProperty(
-            OPT_GENERATE_CONSTRUCTOR, OPT_GENERATE_CONSTRUCTOR);
-        propagateBooleanProperty(
-            OPT_GENERATE_BUILDERS, OPT_GENERATE_BUILDERS);
+        propagateBoolean(CodegenConstants.SERIALIZABLE_MODEL);
+        propagateBoolean(OPT_CONTAINER_DEFAULT_TO_NULL);
+        propagateBoolean(OPT_GENERATE_CONSTRUCTOR);
+        propagateBoolean(OPT_GENERATE_BUILDERS);
     }
 
-    private void propagateBooleanProperty(String key, String templateKey) {
+    private void propagateBoolean(String key) {
         if (additionalProperties.containsKey(key)) {
-            var value = additionalProperties.get(key).toString();
-            additionalProperties.put(
-                templateKey, Boolean.parseBoolean(value));
+            additionalProperties.put(key,
+                Boolean.parseBoolean(
+                    additionalProperties.get(key).toString()));
         }
     }
 
@@ -166,7 +161,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         return super.apiFilename(templateName, tag);
     }
 
-    // ── Parameter processing 
+    // ── Parameter processing
 
     @Override
     public CodegenParameter fromParameter(Parameter parameter, Set<String> imports) {
@@ -175,7 +170,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         return param;
     }
 
-    // ── Model post-processing 
+    // ── Model post-processing
 
     @Override
     public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
@@ -196,7 +191,7 @@ public class CefCodegen extends AbstractJavaCodegen {
         return result;
     }
 
-    // ── Supporting file data (server URLs) 
+    // ── Supporting file data (server URLs)
 
     @Override
     public Map<String, Object> postProcessSupportingFileData(Map<String, Object> bundle) {
