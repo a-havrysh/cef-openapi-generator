@@ -5,16 +5,16 @@ plugins {
 }
 
 group = "io.github.cef"
-version = "3.0.0"  // Major refactoring: modern structure, consistent naming, Kotlin idioms
+version = "3.1.0"  // Major refactoring: modern structure, consistent naming, Kotlin idioms
 
 dependencies {
-    implementation("org.openapitools:openapi-generator:7.18.0")
-    compileOnly("org.projectlombok:lombok:1.18.42")
-    annotationProcessor("org.projectlombok:lombok:1.18.42")
+    implementation("org.openapitools:openapi-generator:7.21.0")
+    compileOnly("org.projectlombok:lombok:1.18.44")
+    annotationProcessor("org.projectlombok:lombok:1.18.44")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.1")
-    testImplementation("org.mockito:mockito-core:5.8.0")
-    testImplementation("org.mockito:mockito-junit-jupiter:5.8.0")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
+    testImplementation("org.mockito:mockito-core:5.23.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.23.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

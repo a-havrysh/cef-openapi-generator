@@ -1,13 +1,76 @@
-package {{apiPackage}}.interceptor
+package {{apiPackage}}.util
 
-import {{apiPackage}}.protocol.ApiRequest
-import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.protocol.MultipartFile
+import java.nio.charset.StandardCharsets
 
 /**
- * {{classname}} - Auto-generated from OpenAPI specification.
+ * Parser for multipart/form-data requests.
+ * Auto-generated from OpenAPI specification.
  */
-class MultipartParser : RequestInterceptor {
-    override fun beforeHandle(request: ApiRequest) {
-        // Implementation goes here
+object MultipartParser {
+
+    fun parse(body: ByteArray, contentType: String): MultipartData {
+        val boundary = extractBoundary(contentType)
+            ?: throw IllegalArgumentException("Boundary not found in Content-Type")
+        return parseByBoundary(body, boundary)
+    }
+
+    private fun extractBoundary(contentType: String): String? =
+        contentType.split(";")
+            .map { it.trim() }
+            .firstOrNull { it.startsWith("boundary=") }
+            ?.substringAfter("boundary=")
+            ?.removeSurrounding("\"")
+
+    private fun parseByBoundary(body: ByteArray, boundary: String): MultipartData {
+        val fields = mutableMapOf<String, String>()
+        val files = mutableMapOf<String, MultipartFile>()
+        val boundaryMarker = "--$boundary"
+        val bodyStr = String(body, StandardCharsets.UTF_8)
+
+        bodyStr.split(boundaryMarker).forEach { part ->
+            val trimmed = part.trim()
+            if (trimmed.isEmpty() || trimmed == "--") return@forEach
+
+            val headerEnd = part.indexOf("\r\n\r\n").takeIf { it != -1 }
+                ?: part.indexOf("\n\n").takeIf { it != -1 }
+                ?: return@forEach
+
+            val headers = part.substring(0, headerEnd)
+            val content = part.substring(headerEnd + 4).trimEnd('\r', '\n')
+
+            val name = extractParam(headers, "name") ?: return@forEach
+            val filename = extractParam(headers, "filename")
+            val partContentType = extractContentType(headers)
+
+            if (filename != null) {
+                files[name] = MultipartFile(name, filename, partContentType, content.toByteArray(StandardCharsets.UTF_8))
+            } else {
+                fields[name] = content
+            }
+        }
+
+        return MultipartData(fields, files)
+    }
+
+    private fun extractParam(headers: String, paramName: String): String? {
+        val pattern = """$paramName="([^"]*)"""".toRegex()
+        return headers.lines()
+            .firstOrNull { it.trim().startsWith("Content-Disposition", ignoreCase = true) }
+            ?.let { pattern.find(it)?.groupValues?.get(1) }
+    }
+
+    private fun extractContentType(headers: String): String =
+        headers.lines()
+            .firstOrNull { it.trim().startsWith("Content-Type:", ignoreCase = true) }
+            ?.substringAfter(":")?.trim()
+            ?: "application/octet-stream"
+
+    data class MultipartData(
+        val fields: Map<String, String>,
+        val files: Map<String, MultipartFile>
+    ) {
+        fun getField(name: String): String? = fields[name]
+        fun getFile(name: String): MultipartFile? = files[name]
     }
 }

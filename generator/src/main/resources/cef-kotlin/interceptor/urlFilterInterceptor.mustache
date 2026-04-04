@@ -1,13 +1,18 @@
 package {{apiPackage}}.interceptor
 
 import {{apiPackage}}.protocol.ApiRequest
-import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.exception.ApiException
 
 /**
- * {{classname}} - Auto-generated from OpenAPI specification.
+ * URL filter interceptor - restricts requests to allowed URL prefixes.
+ * Auto-generated from OpenAPI specification.
  */
-class UrlFilterInterceptor : RequestInterceptor {
+class UrlFilterInterceptor(private val allowedPrefixes: List<String>) : RequestInterceptor {
+
     override fun beforeHandle(request: ApiRequest) {
-        // Implementation goes here
+        val path = request.path
+        if (allowedPrefixes.isNotEmpty() && allowedPrefixes.none { path.startsWith(it) }) {
+            throw ApiException(403, "URL not allowed: $path")
+        }
     }
 }

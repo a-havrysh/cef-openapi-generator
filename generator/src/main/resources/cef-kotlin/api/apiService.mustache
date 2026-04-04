@@ -6,6 +6,9 @@ import {{import}}
 import {{apiPackage}}.protocol.ApiRequest
 import {{apiPackage}}.protocol.ApiResponse
 import {{apiPackage}}.exception.NotImplementedException
+import org.cef.browser.CefBrowser
+import org.cef.browser.CefFrame
+import org.cef.network.CefRequest
 
 /**
  * Service interface for {{classname}} operations.
@@ -56,7 +59,7 @@ import {{apiPackage}}.exception.NotImplementedException
  *     browser: CefBrowser,
  *     frame: CefFrame,
  *     cefRequest: CefRequest
- * ): ApiResponse<Void?> {
+ * ): ApiResponse<Unit> {
  *     userRepository.deleteById(userId)
  *     return ApiResponse.noContent()  // Returns 204 No Content
  * }
@@ -92,7 +95,7 @@ import {{apiPackage}}.exception.NotImplementedException
  *     browser: CefBrowser,
  *     frame: CefFrame,
  *     cefRequest: CefRequest
- * ): ApiResponse<Void?> {
+ * ): ApiResponse<Unit> {
  *     // Execute JavaScript in the browser
  *     browser.executeJavaScript("showNotification('$message')", "", 0)
  *     return ApiResponse.ok(null)
@@ -152,7 +155,7 @@ interface {{classname}}Service {
 {{#isDeprecated}}
     @Deprecated("{{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated{{/notes}}")
 {{/isDeprecated}}
-    fun handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}, {{/allParams}}request: ApiRequest, browser: org.cef.browser.CefBrowser, frame: org.cef.browser.CefFrame, cefRequest: org.cef.network.CefRequest): ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void?{{/returnType}}> {
+    fun handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}, {{/allParams}}request: ApiRequest, browser: CefBrowser, frame: CefFrame, cefRequest: CefRequest): ApiResponse<{{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Unit{{/returnType}}> {
         {{#allParams}}
 {{#defaultValue}}
 {{^required}}
@@ -189,7 +192,7 @@ interface {{classname}}Service {
 {{#isDeprecated}}
     @Deprecated("{{#notes}}{{.}}{{/notes}}{{^notes}}This operation is deprecated{{/notes}}")
 {{/isDeprecated}}
-    fun {{operationId}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}{{^-last}}, {{/-last}}{{/allParams}}): {{#returnType}}{{{.}}}{{/returnType}}{{^returnType}}Void?{{/returnType}} {
+    fun {{operationId}}({{#allParams}}{{paramName}}: {{#isPathParam}}String{{/isPathParam}}{{#isQueryParam}}{{{dataType}}}{{/isQueryParam}}{{#isHeaderParam}}{{{dataType}}}{{/isHeaderParam}}{{#isCookieParam}}{{{dataType}}}{{/isCookieParam}}{{#isBodyParam}}{{{dataType}}}{{/isBodyParam}}{{#isFormParam}}{{{dataType}}}{{/isFormParam}}{{^-last}}, {{/-last}}{{/allParams}}){{#returnType}}: {{{.}}}{{/returnType}} {
         throw NotImplementedException("{{operationId}} not implemented")
     }
 {{/operation}}

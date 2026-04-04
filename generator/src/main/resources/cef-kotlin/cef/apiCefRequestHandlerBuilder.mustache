@@ -1,8 +1,122 @@
 package {{apiPackage}}.cef
 
+import com.intellij.openapi.project.Project
+import {{apiPackage}}.routing.RouteTree
+import {{apiPackage}}.protocol.HttpMethod
+import {{apiPackage}}.protocol.ApiRequest
+import {{apiPackage}}.protocol.ApiResponse
+{{#apiInfo}}
+{{#apis}}
+import {{apiPackage}}.service.{{classname}}Service
+{{/apis}}
+{{/apiInfo}}
+import {{modelPackage}}.*
+
 /**
- * CEF Request Handler Builder - Auto-generated from OpenAPI specification.
+ * Builder for ApiCefRequestHandler with fluent API.
+ * Auto-generated from OpenAPI specification.
  */
-class ApiCefRequestHandlerBuilder {
-    // Auto-generated implementation
+class ApiCefRequestHandlerBuilder private constructor(private val project: Project) {
+
+    private val routeTree = RouteTree()
+    private var urlPrefixes: MutableList<String>? = null
+    private val interceptors = mutableListOf<{{apiPackage}}.interceptor.RequestInterceptor>()
+    private val compositeExceptionHandler = {{apiPackage}}.interceptor.CompositeExceptionHandler()
+    private var exceptionHandler: {{apiPackage}}.interceptor.ExceptionHandler? = null
+
+    companion object {
+        @JvmStatic
+        fun builder(project: Project): ApiCefRequestHandlerBuilder {
+            return ApiCefRequestHandlerBuilder(project)
+        }
+    }
+
+    fun withApiRoutes(): ApiCefRequestHandlerBuilder {
+{{#apiInfo}}
+{{#apis}}
+{{#operations}}
+{{#operation}}
+        routeTree.addRoute("{{path}}", HttpMethod.{{httpMethod}}) { request ->
+            val service = project.getService({{classname}}Service::class.java)
+            service.handle{{#lambda.titlecase}}{{operationId}}{{/lambda.titlecase}}({{#allParams}}{{#isPathParam}}request.getPathVariable("{{baseName}}")!!{{/isPathParam}}{{#isQueryParam}}{{#isInteger}}request.getQueryParam("{{baseName}}")?.toIntOrNull(){{/isInteger}}{{#isLong}}request.getQueryParam("{{baseName}}")?.toLongOrNull(){{/isLong}}{{^isInteger}}{{^isLong}}request.getQueryParam("{{baseName}}"){{/isLong}}{{/isInteger}}{{/isQueryParam}}{{#isHeaderParam}}{{#isInteger}}request.getHeader("{{baseName}}")?.toIntOrNull(){{/isInteger}}{{#isLong}}request.getHeader("{{baseName}}")?.toLongOrNull(){{/isLong}}{{^isInteger}}{{^isLong}}request.getHeader("{{baseName}}"){{/isLong}}{{/isInteger}}{{/isHeaderParam}}{{#isCookieParam}}{{#isInteger}}request.getCookie("{{baseName}}")?.toIntOrNull(){{/isInteger}}{{#isLong}}request.getCookie("{{baseName}}")?.toLongOrNull(){{/isLong}}{{^isInteger}}{{^isLong}}request.getCookie("{{baseName}}"){{/isLong}}{{/isInteger}}{{/isCookieParam}}{{#isBodyParam}}request.getBody({{dataType}}::class.java)!!{{/isBodyParam}}, {{/allParams}}request, request.cefBrowser, request.cefFrame, request.cefRequest)
+        }
+{{/operation}}
+{{/operations}}
+{{/apis}}
+{{/apiInfo}}
+        return this
+    }
+
+    fun withRoute(pattern: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>): ApiCefRequestHandlerBuilder {
+        routeTree.addRoute(pattern, method, handler)
+        return this
+    }
+
+    fun withPrefix(prefix: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>): ApiCefRequestHandlerBuilder {
+        routeTree.addPrefixRoute(prefix, method, handler)
+        return this
+    }
+
+    fun withExact(path: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>): ApiCefRequestHandlerBuilder {
+        routeTree.addRoute(path, method, handler)
+        return this
+    }
+
+    fun withContains(substring: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>): ApiCefRequestHandlerBuilder {
+        routeTree.addContainsRoute(substring, method, handler)
+        return this
+    }
+
+    fun withFallback(method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>): ApiCefRequestHandlerBuilder {
+        routeTree.setFallbackHandler(method, handler)
+        return this
+    }
+
+    fun withUrlFilter(): ApiCefRequestHandlerBuilder {
+{{#hasServers}}
+        urlPrefixes = mutableListOf({{#serverUrls}}"{{{.}}}"{{^-last}}, {{/-last}}{{/serverUrls}})
+{{/hasServers}}
+{{^hasServers}}
+        urlPrefixes = mutableListOf()
+{{/hasServers}}
+        return this
+    }
+
+    fun withUrlFilter(vararg prefixes: String): ApiCefRequestHandlerBuilder {
+        urlPrefixes = prefixes.toMutableList()
+        return this
+    }
+
+    fun withCors(vararg origins: String): ApiCefRequestHandlerBuilder {
+        interceptors.add({{apiPackage}}.interceptor.CorsInterceptor(origins.toList()))
+        return this
+    }
+
+    fun withValidation(): ApiCefRequestHandlerBuilder {
+        interceptors.add({{apiPackage}}.interceptor.ValidationInterceptor())
+        return this
+    }
+
+    fun withInterceptor(interceptor: {{apiPackage}}.interceptor.RequestInterceptor): ApiCefRequestHandlerBuilder {
+        interceptors.add(interceptor)
+        return this
+    }
+
+    fun <T : Exception> withExceptionHandler(
+        exceptionType: Class<T>,
+        handler: {{apiPackage}}.interceptor.CompositeExceptionHandler.TypedExceptionHandler<T>
+    ): ApiCefRequestHandlerBuilder {
+        compositeExceptionHandler.addHandler(exceptionType, handler)
+        return this
+    }
+
+    fun withExceptionHandler(handler: {{apiPackage}}.interceptor.ExceptionHandler): ApiCefRequestHandlerBuilder {
+        exceptionHandler = handler
+        return this
+    }
+
+    fun build(): ApiCefRequestHandler {
+        val finalHandler = exceptionHandler ?: compositeExceptionHandler
+        return ApiCefRequestHandler(project, routeTree, urlPrefixes, interceptors, finalHandler)
+    }
 }

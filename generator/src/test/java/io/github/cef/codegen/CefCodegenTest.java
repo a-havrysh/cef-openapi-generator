@@ -14,6 +14,9 @@ import org.openapitools.codegen.CodegenParameter;
 import java.math.BigDecimal;
 import java.util.*;
 
+import io.github.cef.codegen.config.FileSpec;
+import io.github.cef.codegen.config.PackageSuffix;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -372,39 +375,44 @@ class CefCodegenTest {
 
     @Test
     void testFileSpecEnum() {
-        CefCodegen.FileSpec spec = CefCodegen.FileSpec.API_SERVICE;
+        FileSpec spec = FileSpec.API_SERVICE;
         assertEquals("apiService.mustache", spec.getTemplateName());
         assertEquals("Service.java", spec.getFileName());
     }
 
     @Test
     void testPackageSuffixEnum() {
-        CefCodegen.PackageSuffix suffix = CefCodegen.PackageSuffix.PROTOCOL;
-        assertEquals(".protocol", suffix.getSuffix());
+        PackageSuffix suffix = PackageSuffix.PROTOCOL;
+        assertEquals(".protocol", suffix.getValue());
     }
 
     @Test
-    void testImportFilterEnum() {
-        CefCodegen.ImportFilter filter = CefCodegen.ImportFilter.SWAGGER;
-        assertEquals("swagger", filter.getKeyword());
+    void testImportFilter() {
+        // ImportFilter is now a utility class — test its filtering methods
+        assertTrue(io.github.cef.codegen.processing.ImportFilter.shouldFilterForKotlin("swagger", null));
+        assertTrue(io.github.cef.codegen.processing.ImportFilter.shouldFilterForKotlin("java.util.List", null));
+        assertFalse(io.github.cef.codegen.processing.ImportFilter.shouldFilterForKotlin("com.example.MyType", null));
     }
 
     @Test
-    void testTypeNameEnum() {
-        CefCodegen.TypeName[] values = CefCodegen.TypeName.values();
-        assertTrue(values.length >= 8);
-        // TypeName enum exists and has values
-        assertNotNull(CefCodegen.TypeName.STRING);
-        assertNotNull(CefCodegen.TypeName.INTEGER);
+    void testTypeConverter() {
+        // TypeConverter provides static utility methods
+        assertEquals("String", io.github.cef.codegen.processing.TypeConverter.detectType(List.of("hello")));
+        assertEquals("Integer", io.github.cef.codegen.processing.TypeConverter.detectType(List.of(42)));
+        assertEquals("\"hello\"", io.github.cef.codegen.processing.TypeConverter.formatLiteral("hello", "String"));
+        assertEquals("42", io.github.cef.codegen.processing.TypeConverter.formatLiteral(42, "Integer"));
+        assertEquals("List", io.github.cef.codegen.processing.TypeConverter.kotlinify("java.util.List"));
+        assertEquals("Any", io.github.cef.codegen.processing.TypeConverter.kotlinify("Object"));
+        assertEquals("Int", io.github.cef.codegen.processing.TypeConverter.kotlinify("Integer"));
     }
 
     @Test
     void testAllFileSpecValues() {
-        CefCodegen.FileSpec[] values = CefCodegen.FileSpec.values();
+        FileSpec[] values = FileSpec.values();
         assertTrue(values.length > 15);
 
         // Verify all file specs have non-null template and filename
-        for (CefCodegen.FileSpec spec : values) {
+        for (FileSpec spec : values) {
             assertNotNull(spec.getTemplateName());
             assertNotNull(spec.getFileName());
             assertTrue(spec.getTemplateName().endsWith(".mustache"));
@@ -414,12 +422,12 @@ class CefCodegenTest {
 
     @Test
     void testAllPackageSuffixValues() {
-        CefCodegen.PackageSuffix[] values = CefCodegen.PackageSuffix.values();
+        PackageSuffix[] values = PackageSuffix.values();
         assertEquals(7, values.length);
 
         // Verify all suffixes start with dot
-        for (CefCodegen.PackageSuffix suffix : values) {
-            assertTrue(suffix.getSuffix().startsWith("."));
+        for (PackageSuffix suffix : values) {
+            assertTrue(suffix.getValue().startsWith("."));
         }
     }
 
@@ -651,11 +659,10 @@ class CefCodegenTest {
 
     @Test
     void testAllEnumValues() {
-        // Test all enum types exist and have values
-        assertTrue(CefCodegen.FileSpec.values().length >= 19);
-        assertEquals(7, CefCodegen.PackageSuffix.values().length);
-        assertEquals(6, CefCodegen.ImportFilter.values().length);
-        assertEquals(8, CefCodegen.TypeName.values().length);
+        // FileSpec and PackageSuffix are still enums
+        assertTrue(FileSpec.values().length >= 19);
+        assertEquals(7, PackageSuffix.values().length);
+        // ImportFilter and TypeConverter are now utility classes (tested separately)
     }
 
     @Test

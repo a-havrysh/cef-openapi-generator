@@ -1,13 +1,25 @@
 package {{apiPackage}}.interceptor
 
 import {{apiPackage}}.protocol.ApiRequest
-import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.exception.ApiException
 
 /**
- * {{classname}} - Auto-generated from OpenAPI specification.
+ * Bearer token (JWT) authentication interceptor.
+ * Auto-generated from OpenAPI specification.
  */
-class BearerAuthInterceptor : RequestInterceptor {
+class BearerAuthInterceptor(
+    private val validator: (String) -> Boolean = { true }
+) : RequestInterceptor {
+
     override fun beforeHandle(request: ApiRequest) {
-        // Implementation goes here
+        val authHeader = request.getHeader("Authorization")
+            ?: throw ApiException(401, "Missing Authorization header")
+        if (!authHeader.startsWith("Bearer ", ignoreCase = true)) {
+            throw ApiException(401, "Invalid Authorization header format, expected: Bearer <token>")
+        }
+        val token = authHeader.substring(7)
+        if (!validator(token)) {
+            throw ApiException(403, "Invalid bearer token")
+        }
     }
 }

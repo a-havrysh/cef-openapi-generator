@@ -9,6 +9,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.0] - 2026-04-04
+
+### Kotlin Generator — Complete Rewrite
+
+The `cef-kotlin` generator now produces fully idiomatic Kotlin code. Every template has been rewritten from Java-style stubs to proper Kotlin.
+
+#### Kotlin-Idiomatic Code Generation
+- **`by lazy`** for deferred initialization (ApiRequest: `method`, `path`, `queryParams`, `bodyString`)
+- **`inline fun <reified T> body()`** — reified generics for type-safe body deserialization
+- **`runCatching`** instead of try-catch blocks throughout
+- **`jacksonObjectMapper()`** — Kotlin-aware Jackson ObjectMapper
+- **`fun interface ExceptionHandler`** — SAM interface for exception handling
+- **`typealias RouteHandler`** — function type alias for route handlers
+- **`Unit`** instead of `Void?` for void return types
+- **`data class`** DTOs with `val` properties, `?` nullability, `= null` / `= emptyList()` defaults
+- **`getOrPut`** instead of `computeIfAbsent` in RouteTree
+- **`Charsets.UTF_8`** instead of `StandardCharsets.UTF_8`
+- **Expression body** functions for factory methods and simple getters
+- **Kotlin collections** — `List`, `Map`, `Set` (no `java.util.*` prefix)
+- **`internal set`** for controlled mutability on properties
+- **`companion object`** with `fromValue()` for enums
+
+#### Exception Hierarchy — Primary Constructors
+- `BadRequestException(message, cause?)` — single primary constructor with defaults
+- `NotFoundException`, `InternalServerErrorException`, `NotImplementedException` — same pattern
+- `ValidationException(errors, message?)` — `val errors` in primary constructor, message auto-generated
+
+#### Templates Ported (15+ files)
+- `ApiRequest` — lazy properties, `inline fun <reified T> body()`, Kotlin-style API
+- `ApiResponse` — expression-body factory methods, named parameters, immutable copy via `+`
+- `ApiResponseHandler` — inline `ObjectMapper`, `Map`/`List` without FQN
+- `ApiCefRequestHandler` + `ApiCefRequestHandlerBuilder` — full builder pattern
+- `ApiResourceRequestHandler` — routing + interceptors + exception handling
+- `ExceptionHandler` — `fun interface` + `DEFAULT` companion
+- `CompositeExceptionHandler` — typed handlers with `fun interface`
+- `CorsInterceptor`, `ValidationInterceptor`, `UrlFilterInterceptor` — property access (`request.path`)
+- `ApiKeyAuthInterceptor`, `BearerAuthInterceptor`, `BasicAuthInterceptor` — full implementations
+- `MultipartParser` — Kotlin `object` with regex
+- Model/Enum templates — `data class`, proper nullable, enum with `value` + custom fields
+
+#### Generator Refactoring — SRP Architecture
+
+Refactored from 2 God-classes (1230 lines) into 8 focused classes (950 lines):
+
+```
+codegen/
+├── CefCodegen.java                          — slim orchestrator (~160 lines)
+├── CefKotlinCodegen.java                    — Kotlin overrides (~190 lines)
+├── config/
+│   ├── FileSpec.java                        — template↔filename enum
+│   ├── PackageSuffix.java                   — layer package suffixes
+│   └── GeneratorLayer.java                  — layer registration
+└── processing/
+    ├── EnumFieldProcessor.java              — x-enum-field-* processing
+    ├── ImportFilter.java                    — import cleanup (Java + Kotlin)
+    ├── ParameterConstraintExtractor.java    — validation constraint extraction
+    └── TypeConverter.java                   — type detection, formatting, Java→Kotlin
+```
+
+- **`GeneratorLayer.registerAll()`** replaces 7 `addXxxLayer()` methods
+- **`EnumFieldProcessor`** — auto-injects `value` field, builds constructorArgs
+- **`TypeConverter`** — `detectType()`, `formatLiteral()`, `kotlinify()`, `kotlinifyDefaultValue()`
+- **`ImportFilter`** — unified Java + Kotlin filtering, `shouldFilterForKotlin()`
+- **`ParameterConstraintExtractor`** — validation constraint extraction from OpenAPI schemas
+- **`FileSpec.kotlinFileName()`** — `.java` → `.kt` conversion
+- **No magic numbers** — `VENDOR_PREFIX.length()` instead of `13`
+- **Java 17 features** — switch expressions, `Map.of()`, Stream API
+
+#### Dependencies Updated
+- openapi-generator: 7.18.0 → 7.21.0
+- junit-jupiter: 5.10.1 → 6.0.3
+- mockito: 5.8.0 → 5.23.0
+- lombok: 1.18.42 → 1.18.44
+
+---
+
 ## [3.0.0] - 2026-01-12
 
 **⚠️ MAJOR RELEASE** - Complete Refactoring & Modernization
@@ -409,6 +485,9 @@ See [MIGRATION.md](MIGRATION.md) for detailed migration guide from v1.x to v2.0.
 
 | Version | Date | Key Changes |
 |---------|------|-------------|
+| **3.1.0** | 2026-04-04 | Idiomatic Kotlin codegen, SRP architecture refactoring, dependency updates |
+| **3.0.0** | 2026-01-12 | Major refactoring, template reorganization, complete OpenAPI validation |
+| **2.0.0** | 2026-01-11 | Breaking: simplified interceptors, type-specific exception handlers, validation |
 | **1.1.0** | 2026-01-10 | Type-safe params, interceptors, exception handler, CORS, comprehensive testing (186 tests) |
 | **1.0.5** | 2026-01-04 | URL filtering, enum custom fields, production refactoring |
 | **1.0.2** | 2026-01-03 | Template name fixes |

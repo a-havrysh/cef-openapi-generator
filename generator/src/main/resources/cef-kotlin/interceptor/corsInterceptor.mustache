@@ -1,14 +1,18 @@
 package {{apiPackage}}.interceptor
 
 import {{apiPackage}}.protocol.ApiRequest
-import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.exception.ApiException
 
 /**
- * CORS (Cross-Origin Resource Sharing) interceptor.
+ * CORS interceptor - validates request origins against allowed list.
  * Auto-generated from OpenAPI specification.
  */
-class CorsInterceptor : RequestInterceptor {
+class CorsInterceptor(val allowedOrigins: List<String> = emptyList()) : RequestInterceptor {
+
     override fun beforeHandle(request: ApiRequest) {
-        // CORS handling logic
+        val origin = request.getHeader("Origin") ?: return
+        if (allowedOrigins.isNotEmpty() && origin !in allowedOrigins) {
+            throw ApiException(403, "Origin not allowed: $origin")
+        }
     }
 }

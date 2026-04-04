@@ -1,13 +1,22 @@
 package {{apiPackage}}.interceptor
 
 import {{apiPackage}}.protocol.ApiRequest
-import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.exception.ApiException
 
 /**
- * {{classname}} - Auto-generated from OpenAPI specification.
+ * API Key authentication interceptor.
+ * Auto-generated from OpenAPI specification.
  */
-class ApiKeyAuthInterceptor : RequestInterceptor {
+class ApiKeyAuthInterceptor(
+    private val headerName: String = "X-API-Key",
+    private val validator: (String) -> Boolean = { true }
+) : RequestInterceptor {
+
     override fun beforeHandle(request: ApiRequest) {
-        // Implementation goes here
+        val apiKey = request.getHeader(headerName)
+            ?: throw ApiException(401, "Missing API key in header: $headerName")
+        if (!validator(apiKey)) {
+            throw ApiException(403, "Invalid API key")
+        }
     }
 }

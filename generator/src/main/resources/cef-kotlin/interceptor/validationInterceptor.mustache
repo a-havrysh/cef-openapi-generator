@@ -1,13 +1,132 @@
 package {{apiPackage}}.interceptor
 
 import {{apiPackage}}.protocol.ApiRequest
-import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.validation.ParameterValidator
+import {{apiPackage}}.exception.ValidationException
+import {{apiPackage}}.exception.ValidationException.ValidationError
 
 /**
- * {{classname}} - Auto-generated from OpenAPI specification.
+ * Validates request parameters against OpenAPI constraints.
+ * Auto-generated from OpenAPI specification.
  */
 class ValidationInterceptor : RequestInterceptor {
-    override fun beforeHandle(request: ApiRequest) {
-        // Implementation goes here
+
+    private val validationMetadata = mutableMapOf<String, RouteValidation>()
+
+    init {
+        initializeValidationMetadata()
     }
+
+    override fun beforeHandle(request: ApiRequest) {
+        val routeKey = "${request.method.name}:${request.path}"
+        val validation = validationMetadata[routeKey] ?: return
+
+        val errors = mutableListOf<ValidationError>()
+
+        validation.pathParams.forEach { param ->
+            errors.addAll(validateParameter(param, request.getPathVariable(param.name)))
+        }
+        validation.queryParams.forEach { param ->
+            errors.addAll(validateParameter(param, request.getQueryParam(param.name)))
+        }
+        validation.headerParams.forEach { param ->
+            errors.addAll(validateParameter(param, request.getHeader(param.name)))
+        }
+
+        if (errors.isNotEmpty()) {
+            throw ValidationException(errors)
+        }
+    }
+
+    private fun validateParameter(param: ParameterValidation, value: String?): List<ValidationError> =
+        when (param.type) {
+            ParameterType.STRING -> ParameterValidator.validateString(
+                param.name, value, param.required,
+                param.minLength, param.maxLength, param.pattern, param.enumValues
+            )
+            ParameterType.INTEGER -> ParameterValidator.validateAndParseInteger(
+                param.name, value, param.required,
+                param.minimum?.toInt(), param.maximum?.toInt()
+            )
+            ParameterType.NUMBER -> ParameterValidator.validateNumber(
+                param.name, value?.toDoubleOrNull(), param.required,
+                param.minimum, param.maximum
+            )
+        }
+
+    private fun initializeValidationMetadata() {
+{{#apiInfo}}
+{{#apis}}
+{{#operations}}
+{{#operation}}
+{{#hasParams}}
+{{#allParams}}
+{{#vendorExtensions.x-has-validation}}
+{{#-first}}
+        initValidation_{{operationId}}()
+{{/-first}}
+{{/vendorExtensions.x-has-validation}}
+{{/allParams}}
+{{/hasParams}}
+{{/operation}}
+{{/operations}}
+{{/apis}}
+{{/apiInfo}}
+    }
+{{#apiInfo}}
+{{#apis}}
+{{#operations}}
+{{#operation}}
+{{#allParams}}
+{{#vendorExtensions.x-has-validation}}
+{{#-first}}
+
+    private fun initValidation_{{operationId}}() {
+        val validation = RouteValidation()
+{{/-first}}
+        validation.{{#isPathParam}}pathParams{{/isPathParam}}{{#isQueryParam}}queryParams{{/isQueryParam}}{{#isHeaderParam}}headerParams{{/isHeaderParam}} += ParameterValidation(
+            name = "{{baseName}}",
+            type = ParameterType.{{#isString}}STRING{{/isString}}{{#isInteger}}INTEGER{{/isInteger}}{{#isLong}}INTEGER{{/isLong}}{{#isNumber}}NUMBER{{/isNumber}},
+            required = {{required}},
+            minLength = {{#vendorExtensions.x-min-length}}{{.}}{{/vendorExtensions.x-min-length}}{{^vendorExtensions.x-min-length}}null{{/vendorExtensions.x-min-length}},
+            maxLength = {{#vendorExtensions.x-max-length}}{{.}}{{/vendorExtensions.x-max-length}}{{^vendorExtensions.x-max-length}}null{{/vendorExtensions.x-max-length}},
+            pattern = {{#vendorExtensions.x-pattern}}"{{.}}"{{/vendorExtensions.x-pattern}}{{^vendorExtensions.x-pattern}}null{{/vendorExtensions.x-pattern}},
+            minimum = {{#vendorExtensions.x-minimum}}{{.}}.toDouble(){{/vendorExtensions.x-minimum}}{{^vendorExtensions.x-minimum}}null{{/vendorExtensions.x-minimum}},
+            maximum = {{#vendorExtensions.x-maximum}}{{.}}.toDouble(){{/vendorExtensions.x-maximum}}{{^vendorExtensions.x-maximum}}null{{/vendorExtensions.x-maximum}},
+            enumValues = {{#vendorExtensions.x-has-enum-values}}listOf({{{vendorExtensions.x-enum-values-string}}}){{/vendorExtensions.x-has-enum-values}}{{^vendorExtensions.x-has-enum-values}}null{{/vendorExtensions.x-has-enum-values}}
+        )
+{{/vendorExtensions.x-has-validation}}
+{{/allParams}}
+{{#allParams}}
+{{#vendorExtensions.x-has-validation}}
+{{#-first}}
+        validationMetadata["{{httpMethod}}:{{path}}"] = validation
+    }
+{{/-first}}
+{{/vendorExtensions.x-has-validation}}
+{{/allParams}}
+{{/operation}}
+{{/operations}}
+{{/apis}}
+{{/apiInfo}}
+
+    private data class RouteValidation(
+        val pathParams: MutableList<ParameterValidation> = mutableListOf(),
+        val queryParams: MutableList<ParameterValidation> = mutableListOf(),
+        val headerParams: MutableList<ParameterValidation> = mutableListOf()
+    )
+
+    private data class ParameterValidation(
+        val name: String,
+        val type: ParameterType,
+        val required: Boolean,
+        val minLength: Int? = null,
+        val maxLength: Int? = null,
+        val pattern: String? = null,
+        val minimum: Number? = null,
+        val maximum: Number? = null,
+        val enumValues: List<String>? = null
+    )
+
+    private enum class ParameterType { STRING, INTEGER, NUMBER }
 }

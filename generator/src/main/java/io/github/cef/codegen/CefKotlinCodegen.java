@@ -1,25 +1,27 @@
 package io.github.cef.codegen;
 
+import io.github.cef.codegen.config.FileSpec;
+import io.github.cef.codegen.processing.ImportFilter;
+import io.github.cef.codegen.processing.TypeConverter;
+import io.swagger.v3.oas.models.media.Schema;
+import org.openapitools.codegen.CodegenModel;
+import org.openapitools.codegen.CodegenProperty;
 import org.openapitools.codegen.SupportingFile;
-import org.openapitools.codegen.model.ModelsMap;
 import org.openapitools.codegen.model.ModelMap;
+import org.openapitools.codegen.model.ModelsMap;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
  * Kotlin code generator for CEF OpenAPI specifications.
- * Extends CefCodegen to generate idiomatic Kotlin code instead of Java.
  *
- * Generates the same CEF API architecture but in Kotlin:
- * - Service interfaces with business logic (two-layer pattern)
- * - Protocol layer (ApiRequest, ApiResponse, HttpMethod)
- * - Interceptor framework with authentication and CORS support
- * - Exception hierarchy (400, 401, 403, 404, 500, 501)
- * - Type-safe parameter validation
- * - Multipart file handling
- *
- * All generated code follows Kotlin idioms and best practices.
- * Uses Kotlin built-in types (Int, List, Map) instead of Java (Integer, List, Map).
+ * Extends the Java generator to produce idiomatic Kotlin:
+ * - Kotlin built-in types (Int, List, Map, Any, Unit)
+ * - data class models with val properties
+ * - by lazy, runCatching, expression bodies
+ * - fun interface, companion object, sealed hierarchies
  */
 public class CefKotlinCodegen extends CefCodegen {
 
@@ -28,35 +30,9 @@ public class CefKotlinCodegen extends CefCodegen {
 
     public CefKotlinCodegen() {
         super();
-        // Override template directory to use Kotlin templates
-        this.embeddedTemplateDir = this.templateDir = TEMPLATE_DIR;
-        // Use src/main/kotlin for Kotlin source files instead of src/main/java
-        this.sourceFolder = "src/main/kotlin";
-
-        // Configure Kotlin type mappings
-        configureKotlinTypeMappings();
-    }
-
-    /**
-     * Configure type mappings to use Kotlin built-in types instead of Java boxed types.
-     * This ensures generated code is idiomatic Kotlin.
-     */
-    private void configureKotlinTypeMappings() {
-        // Override Java boxed types with Kotlin equivalents
-        typeMapping.put("integer", "Int");
-        typeMapping.put("long", "Long");
-        typeMapping.put("float", "Float");
-        typeMapping.put("double", "Double");
-        typeMapping.put("boolean", "Boolean");
-        typeMapping.put("string", "String");
-
-        // Use Kotlin collections instead of java.util
-        typeMapping.put("array", "List");
-        typeMapping.put("map", "Map");
-
-        // Clear import mappings - don't add unnecessary imports for Kotlin built-in types
-        // Kotlin doesn't need imports for: Int, Long, String, List, Map, Set, etc.
-        importMapping.clear();
+        embeddedTemplateDir = templateDir = TEMPLATE_DIR;
+        sourceFolder = "src/main/kotlin";
+        configureKotlinTypes();
     }
 
     @Override
@@ -66,41 +42,89 @@ public class CefKotlinCodegen extends CefCodegen {
 
     @Override
     public String getHelp() {
-        return "Generates Kotlin code for CEF-based OpenAPI APIs with full CEF framework support";
+        return "Generates idiomatic Kotlin code for CEF-based OpenAPI APIs";
     }
+
+    // ── Type system ─────────────────────────────────────────────────────
+
+    private void configureKotlinTypes() {
+        // Primitives
+        typeMapping.put("integer", "Int");
+        typeMapping.put("long", "Long");
+        typeMapping.put("float", "Float");
+        typeMapping.put("double", "Double");
+        typeMapping.put("boolean", "Boolean");
+        typeMapping.put("string", "String");
+        typeMapping.put("byte", "Byte");
+        typeMapping.put("short", "Short");
+        typeMapping.put("char", "Char");
+        typeMapping.put("object", "Any");
+        typeMapping.put("AnyType", "Any");
+        typeMapping.put("Void", "Unit");
+        typeMapping.put("void", "Unit");
+        typeMapping.put("file", "ByteArray");
+        typeMapping.put("binary", "ByteArray");
+
+        // Collections
+        typeMapping.put("array", "List");
+        typeMapping.put("list", "List");
+        typeMapping.put("map", "Map");
+        typeMapping.put("set", "Set");
+
+        // No java.util imports needed
+        importMapping.clear();
+
+        // Types that don't need imports
+        languageSpecificPrimitives.addAll(Arrays.asList(
+            "Int", "Long", "Float", "Double", "Boolean", "String", "Any",
+            "List", "Map", "Set", "ByteArray", "Byte", "Short", "Char", "Unit"
+        ));
+    }
+
+    @Override
+    public String getTypeDeclaration(Schema p) {
+        return TypeConverter.kotlinify(super.getTypeDeclaration(p));
+    }
+
+    @Override
+    public String toDefaultValue(Schema schema) {
+        return TypeConverter.kotlinifyDefaultValue(super.toDefaultValue(schema));
+    }
+
+    // ── Template configuration ──────────────────────────────────────────
 
     @Override
     public void processOpts() {
         super.processOpts();
 
-        // Remove MockService from API template files - not needed for Kotlin
-        apiTemplateFiles.remove("api/mockService.mustache");
+        // Kotlin model/API templates
+        modelTemplateFiles.clear();
+        modelTemplateFiles.put("model/model.mustache", ".kt");
 
-        // Convert all .java file extensions to .kt for Kotlin code generation
-        // Also exclude MockService files as they're not needed in Kotlin
+        apiTemplateFiles.clear();
+        apiTemplateFiles.put("api/" + FileSpec.API_SERVICE.getTemplateName(), FileSpec.API_SERVICE.kotlinFileName());
+
+        // No docs/tests
+        modelDocTemplateFiles.clear();
+        modelTestTemplateFiles.clear();
+        apiDocTemplateFiles.clear();
+        apiTestTemplateFiles.clear();
+
+        // Convert supporting files: .java → .kt, skip MockService
+        convertSupportingFilesToKotlin();
+    }
+
+    private void convertSupportingFilesToKotlin() {
         List<SupportingFile> kotlinFiles = new ArrayList<>();
-        for (SupportingFile file : supportingFiles) {
-            String template = file.getTemplateFile();
+        for (var file : supportingFiles) {
+            var template = file.getTemplateFile();
+            if (template != null && template.contains("mockService")) continue;
 
-            // Skip MockService - not needed for Kotlin
-            if (template != null && template.contains("mockService")) {
-                continue;
-            }
-
-            String destFilename = file.getDestinationFilename();
-            if (destFilename.endsWith(".java")) {
-                String kotlinFilename = destFilename.replaceAll("\\.java$", ".kt");
-                // Recreate SupportingFile with .kt extension
-                SupportingFile kotlinFile = new SupportingFile(
-                    template,
-                    file.getFolder(),
-                    kotlinFilename
-                );
-                // Preserve the canOverwrite setting if it was false
-                if (!file.isCanOverwrite()) {
-                    kotlinFile.doNotOverwrite();
-                }
-                kotlinFiles.add(kotlinFile);
+            var dest = file.getDestinationFilename();
+            if (dest.endsWith(".java")) {
+                var ktFile = new SupportingFile(template, file.getFolder(), dest.replace(".java", ".kt"));
+                if (!file.isCanOverwrite()) ktFile.doNotOverwrite();
+                kotlinFiles.add(ktFile);
             } else {
                 kotlinFiles.add(file);
             }
@@ -111,62 +135,60 @@ public class CefKotlinCodegen extends CefCodegen {
 
     @Override
     public String toModelFilename(String name) {
-        // Convert Java model filename to Kotlin (.java -> .kt)
-        String javaFilename = super.toModelFilename(name);
-        return javaFilename.replaceAll("\\.java$", ".kt");
+        return super.toModelFilename(name).replace(".java", ".kt");
     }
 
     @Override
     public String toApiFilename(String name) {
-        // Convert Java API filename to Kotlin (.java -> .kt)
-        String javaFilename = super.toApiFilename(name);
-        return javaFilename.replaceAll("\\.java$", ".kt");
+        return super.toApiFilename(name).replace(".java", ".kt");
+    }
+
+    // ── Model post-processing ───────────────────────────────────────────
+
+    @Override
+    public void postProcessModelProperty(CodegenModel model, CodegenProperty property) {
+        super.postProcessModelProperty(model, property);
+        escapeKotlinIdentifiers(property);
+        kotlinifyProperty(property);
+        ImportFilter.cleanupKotlinImports(model);
     }
 
     @Override
     public ModelsMap postProcessModels(ModelsMap objs) {
-        // Remove unnecessary imports from Kotlin models
-        ModelsMap result = super.postProcessModels(objs);
+        var result = super.postProcessModels(objs);
 
         for (var modelMapObj : result.getModels()) {
-            var modelMap = (ModelMap) modelMapObj;
-            var model = modelMap.getModel();
+            var model = ((ModelMap) modelMapObj).getModel();
+            if (model == null) continue;
 
-            if (model != null && model.imports != null) {
-                // Create a new list with only necessary imports
-                List<String> filteredImports = new ArrayList<>();
-
-                for (String importStr : model.imports) {
-                    // Keep imports that are NOT Kotlin built-ins, Java utils, or bad patterns
-                    boolean isKotlinBuiltin = importStr.endsWith(".Int") ||
-                        importStr.endsWith(".Long") ||
-                        importStr.endsWith(".Float") ||
-                        importStr.endsWith(".Double") ||
-                        importStr.endsWith(".Boolean") ||
-                        importStr.endsWith(".String") ||
-                        importStr.endsWith(".List") ||
-                        importStr.endsWith(".Map") ||
-                        importStr.endsWith(".Set");
-
-                    boolean isJavaUtil = importStr.startsWith("java.util");
-                    boolean isBadImport = importStr.contains("ArrayList") ||
-                        importStr.contains("Arrays");
-
-                    // Also skip imports from com.example.api.dto package (shouldn't import our own types)
-                    boolean isSelfImport = importStr.startsWith("com.example.api.dto.");
-
-                    if (!isKotlinBuiltin && !isJavaUtil && !isBadImport && !isSelfImport) {
-                        filteredImports.add(importStr);
-                    }
-                }
-
-                // Replace the imports list with filtered version
-                model.imports.clear();
-                model.imports.addAll(filteredImports);
+            if (model.vars != null) {
+                model.vars.forEach(this::kotlinifyProperty);
+            }
+            if (model.imports != null) {
+                model.imports.removeIf(imp -> ImportFilter.shouldFilterForKotlin(imp, modelPackage()));
             }
         }
 
         return result;
     }
 
+    // ── Kotlin-specific transformations ─────────────────────────────────
+
+    /** Escapes $ in property names/baseName for Kotlin string literals and identifiers. */
+    private void escapeKotlinIdentifiers(CodegenProperty property) {
+        if (property.baseName != null && property.baseName.contains("$")) {
+            property.baseName = property.baseName.replace("$", "\\$");
+        }
+        if (property.name != null && property.name.contains("$")) {
+            property.name = "`" + property.name + "`";
+        }
+    }
+
+    /** Converts Java types to Kotlin equivalents on a property. */
+    private void kotlinifyProperty(CodegenProperty property) {
+        property.dataType = TypeConverter.kotlinify(property.dataType);
+        property.datatypeWithEnum = TypeConverter.kotlinify(property.datatypeWithEnum);
+        property.baseType = TypeConverter.kotlinify(property.baseType);
+        property.defaultValue = TypeConverter.kotlinifyDefaultValue(property.defaultValue);
+    }
 }

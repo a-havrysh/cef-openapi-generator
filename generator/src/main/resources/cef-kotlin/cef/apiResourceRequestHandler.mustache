@@ -1,8 +1,54 @@
 package {{apiPackage}}.cef
 
+import com.intellij.openapi.project.Project
+import {{apiPackage}}.routing.RouteTree
+import {{apiPackage}}.protocol.ApiRequest
+import {{apiPackage}}.protocol.ApiResponse
+import {{apiPackage}}.protocol.HttpMethod
+import {{apiPackage}}.exception.ApiException
+import org.cef.browser.CefBrowser
+import org.cef.browser.CefFrame
+import org.cef.handler.CefResourceHandler
+import org.cef.handler.CefResourceRequestHandlerAdapter
+import org.cef.network.CefRequest
+
 /**
- * API Resource Request Handler - Auto-generated from OpenAPI specification.
+ * CEF Resource Request Handler - routes requests to API handlers.
+ * Auto-generated from OpenAPI specification.
  */
-class ApiResourceRequestHandler {
-    // Auto-generated implementation
+internal class ApiResourceRequestHandler(
+    private val project: Project,
+    private val routeTree: RouteTree,
+    private val interceptors: List<{{apiPackage}}.interceptor.RequestInterceptor>,
+    private val exceptionHandler: {{apiPackage}}.interceptor.ExceptionHandler?
+) : CefResourceRequestHandlerAdapter() {
+
+    override fun getResourceHandler(browser: CefBrowser, frame: CefFrame, cefRequest: CefRequest): CefResourceHandler? {
+        val request = ApiRequest(cefRequest, browser, frame)
+        val startTime = System.currentTimeMillis()
+
+        return try {
+            val match = routeTree.match(request.path, request.method) ?: return null
+            request.setPathVariables(match.pathVariables)
+
+            interceptors.forEach { it.beforeHandle(request) }
+
+            val response = match.handler(request)
+
+            val duration = System.currentTimeMillis() - startTime
+            interceptors.forEach { interceptor ->
+                runCatching { interceptor.afterHandle(response, duration) }
+            }
+
+            ApiResponseHandler.from(response)
+        } catch (e: Exception) {
+            interceptors.forEach { interceptor ->
+                runCatching { interceptor.onError(e, request) }
+            }
+
+            val errorResponse = exceptionHandler?.handleException(e, cefRequest)
+                ?: {{apiPackage}}.interceptor.ExceptionHandler.DEFAULT.handleException(e, cefRequest)
+            ApiResponseHandler.from(errorResponse)
+        }
+    }
 }
