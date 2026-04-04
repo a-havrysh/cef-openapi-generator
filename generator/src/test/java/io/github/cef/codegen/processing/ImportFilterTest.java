@@ -43,6 +43,19 @@ class ImportFilterTest {
             assertTrue(model.imports.contains("com.example.dto.UserDto"));
         }
 
+        @Test void keepsSchemaValidator() {
+            // "Schema" exact filter must NOT catch "SchemaValidator"
+            var model = modelWith("com.example.SchemaValidator");
+            ImportFilter.cleanupJavaImports(model);
+            assertTrue(model.imports.contains("com.example.SchemaValidator"));
+        }
+
+        @Test void removesExactSchema() {
+            var model = modelWith("Schema");
+            ImportFilter.cleanupJavaImports(model);
+            assertTrue(model.imports.isEmpty());
+        }
+
         @Test void handlesNull() {
             assertDoesNotThrow(() -> ImportFilter.cleanupJavaImports(null));
         }

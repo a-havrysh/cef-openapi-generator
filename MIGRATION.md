@@ -4,6 +4,72 @@ Guide for migrating between major versions of CEF OpenAPI Generator.
 
 ---
 
+## Migrating to 3.1.0 from 3.0.0
+
+### Kotlin Generator — Complete Rewrite
+
+If using `cef-kotlin` generator, regenerated code will have different signatures:
+
+**Service interfaces:** `Void?` return → `Unit`, CEF params use short imports
+```kotlin
+// 3.0.0
+fun saveConfig(configSaveRequest: ConfigSaveRequest): Void?
+
+// 3.1.0
+fun saveConfig(configSaveRequest: ConfigSaveRequest)
+```
+
+**Action:** Update all service implementations — change `: Void?` to nothing, remove `return null`.
+
+**ApiRequest:** Properties instead of getters
+```kotlin
+// 3.0.0
+request.getPath()
+request.getMethod()
+
+// 3.1.0
+request.path
+request.method
+request.queryParams["key"]
+request.body<MyDto>()  // reified generics
+```
+
+**ExceptionHandler:** Now `fun interface` with `handleException` method
+```kotlin
+// 3.0.0
+interface ExceptionHandler {
+    fun handle(exception: Exception): ApiResponse<*>?
+}
+
+// 3.1.0
+fun interface ExceptionHandler {
+    fun handleException(exception: Exception, request: CefRequest): ApiResponse<*>
+}
+```
+
+**Enums:** All enums with `x-enum-field-*` now auto-include `val value: String`
+
+**Generator internals:** If extending CefCodegen, inner enums moved to packages:
+```java
+// 3.0.0
+CefCodegen.FileSpec.API_SERVICE
+CefCodegen.PackageSuffix.PROTOCOL
+
+// 3.1.0
+io.github.cef.codegen.config.FileSpec.API_SERVICE
+io.github.cef.codegen.config.PackageSuffix.PROTOCOL
+```
+
+### Migration Steps
+
+1. Update dependency to `3.1.0`
+2. Regenerate: `./gradlew clean generateApi`
+3. Fix service implementations: `Void?` → remove return type, remove `return null`
+4. Fix any `request.getPath()` → `request.path` usages
+5. Build and test
+
+---
+
 ## Migrating to 3.0.0 from 2.x
 
 ### Breaking Changes

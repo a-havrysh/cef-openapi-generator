@@ -1,0 +1,228 @@
+package io.github.cef.codegen;
+
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.openapitools.codegen.DefaultGenerator;
+import org.openapitools.codegen.config.CodegenConfigurator;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Integration tests that run the full generator against a real OpenAPI spec
+ * and verify the output structure, file existence, and content correctness.
+ */
+class IntegrationTest {
+
+    private static final String SPEC = "src/test/resources/test-openapi.yaml";
+
+    @Nested
+    class JavaGenerator {
+
+        @Test
+        void generatesAllExpectedFiles(@TempDir Path outputDir) {
+            generate("cef", outputDir);
+
+            var javaRoot = outputDir.resolve("src/main/java");
+            assertTrue(Files.isDirectory(javaRoot), "Java source root missing");
+
+            // DTOs
+            assertFileExists(javaRoot, "com/example/api/dto/User.java");
+            assertFileExists(javaRoot, "com/example/api/dto/CreateUserRequest.java");
+            assertFileExists(javaRoot, "com/example/api/dto/Role.java");
+
+            // Service (generated at api package root, not service/ subdir in integration mode)
+            assertFileContains(javaRoot, "com/example/api/UserApiService.java", "listUsers");
+            assertFileContains(javaRoot, "com/example/api/UserApiService.java", "createUser");
+            assertFileContains(javaRoot, "com/example/api/UserApiService.java", "getUser");
+            assertFileContains(javaRoot, "com/example/api/UserApiService.java", "deleteUser");
+
+            // Infrastructure layers
+            assertFileExists(javaRoot, "com/example/api/protocol/ApiRequest.java");
+            assertFileExists(javaRoot, "com/example/api/protocol/ApiResponse.java");
+            assertFileExists(javaRoot, "com/example/api/protocol/HttpMethod.java");
+            assertFileExists(javaRoot, "com/example/api/routing/RouteTree.java");
+            assertFileExists(javaRoot, "com/example/api/cef/ApiCefRequestHandler.java");
+            assertFileExists(javaRoot, "com/example/api/cef/ApiCefRequestHandlerBuilder.java");
+            assertFileExists(javaRoot, "com/example/api/exception/ApiException.java");
+            assertFileExists(javaRoot, "com/example/api/interceptor/RequestInterceptor.java");
+            assertFileExists(javaRoot, "com/example/api/validation/ParameterValidator.java");
+        }
+
+        @Test
+        void enumHasVendorExtensionFields(@TempDir Path outputDir) {
+            generate("cef", outputDir);
+            var content = readFile(outputDir.resolve("src/main/java/com/example/api/dto/Role.java"));
+            assertTrue(content.contains("displayName"), "Enum should have displayName field");
+            assertTrue(content.contains("level"), "Enum should have level field");
+            assertTrue(content.contains("ADMIN"), "Enum should have ADMIN constant");
+        }
+
+        @Test
+        void builderContainsApiRoutes(@TempDir Path outputDir) {
+            generate("cef", outputDir);
+            var content = readFile(outputDir.resolve("src/main/java/com/example/api/cef/ApiCefRequestHandlerBuilder.java"));
+            assertTrue(content.contains("withApiRoutes"), "Builder should have withApiRoutes");
+            assertTrue(content.contains("/api/users"), "Builder should contain route paths");
+            assertTrue(content.contains("UserApiService"), "Builder should reference service");
+        }
+    }
+
+    @Nested
+    class KotlinGenerator {
+
+        @Test
+        void generatesKotlinFiles(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+
+            var ktRoot = outputDir.resolve("src/main/kotlin");
+            assertTrue(Files.isDirectory(ktRoot), "Kotlin source root missing");
+
+            // DTOs — .kt not .java
+            assertFileExists(ktRoot, "com/example/api/dto/User.kt");
+            assertFileExists(ktRoot, "com/example/api/dto/CreateUserRequest.kt");
+            assertFileExists(ktRoot, "com/example/api/dto/Role.kt");
+
+            // No .java files should exist
+            assertNoJavaFiles(ktRoot);
+        }
+
+        @Test
+        void modelsUseDataClass(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/dto/User.kt"));
+            assertTrue(content.contains("data class User"), "Should be data class");
+            assertTrue(content.contains("val id:"), "Should use val");
+            assertFalse(content.contains("java.util."), "Should not contain java.util");
+        }
+
+        @Test
+        void enumHasValueField(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/dto/Role.kt"));
+            assertTrue(content.contains("val value: String"), "Enum should have value field");
+            assertTrue(content.contains("val displayName: String"), "Enum should have displayName");
+            assertTrue(content.contains("ADMIN("), "Should have ADMIN with constructor args");
+        }
+
+        @Test
+        void servicesUseUnitNotVoid(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/UserApiService.kt"));
+            assertFalse(content.contains("Void"), "Should not use Void");
+            assertTrue(content.contains("Unit"), "Should use Unit for void returns");
+        }
+
+        @Test
+        void apiRequestUsesLazy(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/protocol/ApiRequest.kt"));
+            assertTrue(content.contains("by lazy"), "Should use by lazy");
+            assertTrue(content.contains("runCatching"), "Should use runCatching");
+            assertFalse(content.contains("StandardCharsets"), "Should use Charsets.UTF_8");
+        }
+
+        @Test
+        void exceptionUsesPrimaryConstructor(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/exception/NotFoundException.kt"));
+            assertTrue(content.contains("class NotFoundException("), "Should use primary constructor");
+            assertFalse(content.contains("constructor("), "Should not use secondary constructor");
+        }
+
+        @Test
+        void apiResponseUsesExpressionBody(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/protocol/ApiResponse.kt"));
+            assertTrue(content.contains("fun <T> ok(body: T) ="), "Should use expression body");
+        }
+
+        @Test
+        void exceptionHandlerIsFunInterface(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/interceptor/ExceptionHandler.kt"));
+            assertTrue(content.contains("fun interface ExceptionHandler"), "Should be fun interface");
+            assertTrue(content.contains("val DEFAULT"), "Should have DEFAULT companion val");
+        }
+
+        @Test
+        void routeTreeUsesTypealias(@TempDir Path outputDir) {
+            generate("cef-kotlin", outputDir);
+            var content = readFile(outputDir.resolve("src/main/kotlin/com/example/api/routing/RouteTree.kt"));
+            assertTrue(content.contains("typealias RouteHandler"), "Should use typealias");
+            assertTrue(content.contains("getOrPut"), "Should use getOrPut");
+        }
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────
+
+    private void generate(String generatorName, Path outputDir) {
+        var configurator = new CodegenConfigurator();
+        configurator.setGeneratorName(generatorName);
+        configurator.setInputSpec(SPEC);
+        configurator.setOutputDir(outputDir.toString());
+        configurator.setModelPackage("com.example.api.dto");
+        configurator.setApiPackage("com.example.api");
+        configurator.addAdditionalProperty("hideGenerationTimestamp", "true");
+
+        var generator = new DefaultGenerator();
+        generator.opts(configurator.toClientOptInput());
+        var files = generator.generate();
+
+        // Debug: write generated file list for troubleshooting
+        try {
+            var listing = files.stream()
+                .map(f -> f.toPath().toString().replace(outputDir.toString(), ""))
+                .sorted()
+                .reduce("", (a, b) -> a + "\n" + b);
+            Files.writeString(outputDir.resolve("_generated_files.txt"), listing);
+        } catch (Exception ignored) {}
+    }
+
+    private void assertFileExists(Path root, String relativePath) {
+        var file = root.resolve(relativePath);
+        if (!Files.exists(file)) {
+            // List actual files for debugging
+            try (Stream<Path> walk = Files.walk(root)) {
+                var actual = walk.filter(Files::isRegularFile)
+                    .map(p -> root.relativize(p).toString())
+                    .sorted().toList();
+                fail("File missing: " + relativePath + "\nActual files:\n  " + String.join("\n  ", actual));
+            } catch (Exception e) {
+                fail("File missing: " + relativePath);
+            }
+        }
+    }
+
+    private void assertFileContains(Path root, String relativePath, String content) {
+        assertFileExists(root, relativePath);
+        var fileContent = readFile(root.resolve(relativePath));
+        assertTrue(fileContent.contains(content), relativePath + " should contain: " + content);
+    }
+
+    private void assertNoJavaFiles(Path root) {
+        try (Stream<Path> walk = Files.walk(root)) {
+            var javaFiles = walk
+                .filter(p -> p.toString().endsWith(".java"))
+                .toList();
+            assertTrue(javaFiles.isEmpty(), "Found .java files in Kotlin output: " + javaFiles);
+        } catch (Exception e) {
+            fail("Failed to walk directory: " + e.getMessage());
+        }
+    }
+
+    private String readFile(Path path) {
+        try {
+            return Files.readString(path);
+        } catch (Exception e) {
+            fail("Failed to read: " + path + " — " + e.getMessage());
+            return "";
+        }
+    }
+}

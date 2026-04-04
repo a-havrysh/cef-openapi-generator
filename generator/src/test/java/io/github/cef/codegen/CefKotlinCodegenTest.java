@@ -35,6 +35,37 @@ class CefKotlinCodegenTest {
     }
 
     @Nested
+    class TypeDeclaration {
+
+        @Test void stringSchema() {
+            var schema = new io.swagger.v3.oas.models.media.StringSchema();
+            var result = codegen.getTypeDeclaration(schema);
+            assertEquals("String", result);
+        }
+
+        @Test void arrayOfStrings() {
+            var schema = new io.swagger.v3.oas.models.media.ArraySchema();
+            schema.setItems(new io.swagger.v3.oas.models.media.StringSchema());
+            var result = codegen.getTypeDeclaration(schema);
+            assertTrue(result.contains("List"), "Expected List: " + result);
+            assertFalse(result.contains("java.util"), "Should not contain java.util: " + result);
+        }
+    }
+
+    @Nested
+    class DefaultValues {
+
+        @Test void arrayDefault() {
+            var schema = new io.swagger.v3.oas.models.media.ArraySchema();
+            schema.setItems(new io.swagger.v3.oas.models.media.StringSchema());
+            var result = codegen.toDefaultValue(schema);
+            if (result != null) {
+                assertFalse(result.contains("new ArrayList"), "Should not contain Java: " + result);
+            }
+        }
+    }
+
+    @Nested
     class TemplateConfiguration {
 
         @Test void modelTemplatesUseKt() {

@@ -55,9 +55,9 @@ public final class TypeConverter {
             .replace("java.util.Map", "Map")
             .replace("java.util.Set", "Set")
             .replace("java.lang.Object", "Any")
-            .replace("Object", "Any")
-            .replace("Integer", "Int")
-            .replace("Void", "Unit");
+            .replaceAll("\\bObject\\b", "Any")
+            .replaceAll("\\bInteger\\b", "Int")
+            .replaceAll("\\bVoid\\b", "Unit");
     }
 
     /** Replaces Java collection constructors with Kotlin idioms in default values. */

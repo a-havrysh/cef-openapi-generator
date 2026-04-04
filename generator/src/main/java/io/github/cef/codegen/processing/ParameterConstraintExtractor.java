@@ -3,9 +3,6 @@ package io.github.cef.codegen.processing;
 import io.swagger.v3.oas.models.media.Schema;
 import org.openapitools.codegen.CodegenParameter;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**

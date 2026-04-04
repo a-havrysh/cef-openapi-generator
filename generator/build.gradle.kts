@@ -96,7 +96,7 @@ tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
-                minimum = "0.80".toBigDecimal()  // 80% coverage for generator code
+                minimum = "0.90".toBigDecimal()  // 90% coverage for generator code
             }
         }
     }

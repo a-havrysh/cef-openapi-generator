@@ -1,0 +1,129 @@
+package {{apiPackage}}.interceptor;
+
+import {{apiPackage}}.protocol.ApiResponse;
+import {{apiPackage}}.exception.ApiException;
+import org.cef.network.CefRequest;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Composite exception handler that supports type-specific handlers.
+ * Allows registering different handlers for different exception types.
+ *
+ * <p>Handlers are checked in registration order using instanceof.
+ * First matching handler processes the exception.
+ *
+ * <p>Example usage:</p>
+ * <pre>{@code
+ * ApiCefRequestHandler handler = ApiCefRequestHandler.builder(project)
+ *     .withApiRoutes()
+ *     .withExceptionHandler(ValidationException.class, (ex, req) -> {
+ *         ErrorResponse err = new ErrorResponse();
+ *         err.setError("Validation");
+ *         err.setDetails(ex.getErrors());
+ *         return ApiResponse.badRequest(err);
+ *     })
+ *     .withExceptionHandler(ApiException.class, (ex, req) -> {
+ *         return ApiResponse.status(ex.getStatusCode(), ex.getMessage());
+ *     })
+ *     .withExceptionHandler(Exception.class, (ex, req) -> {
+ *         return ApiResponse.internalServerError("Server error");
+ *     })
+ *     .build();
+ * }</pre>
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ *
+ * @see ExceptionHandler
+ * @see ApiException
+ */
+public final class CompositeExceptionHandler implements ExceptionHandler {
+
+    private final List<TypedHandler<?>> handlers;
+    private final ExceptionHandler fallbackHandler;
+
+    /**
+     * Creates composite handler with default fallback.
+     */
+    public CompositeExceptionHandler() {
+        this(ExceptionHandler.DEFAULT);
+    }
+
+    /**
+     * Creates composite handler with custom fallback.
+     *
+     * @param fallbackHandler fallback handler if no type-specific handler matches
+     */
+    public CompositeExceptionHandler(ExceptionHandler fallbackHandler) {
+        this.handlers = new ArrayList<>();
+        this.fallbackHandler = fallbackHandler != null ? fallbackHandler : ExceptionHandler.DEFAULT;
+    }
+
+    /**
+     * Registers handler for specific exception type.
+     * Handlers are checked in registration order.
+     *
+     * @param exceptionType exception class to handle
+     * @param handler handler for this exception type
+     * @param <T> exception type
+     * @return this handler for chaining
+     */
+    public <T extends Exception> CompositeExceptionHandler addHandler(
+            Class<T> exceptionType,
+            TypedExceptionHandler<T> handler) {
+        handlers.add(new TypedHandler<>(exceptionType, handler));
+        return this;
+    }
+
+    @Override
+    public ApiResponse<?> handleException(Exception exception, CefRequest request) {
+        // Check type-specific handlers in registration order
+        for (TypedHandler<?> typedHandler : handlers) {
+            if (typedHandler.canHandle(exception)) {
+                return typedHandler.handle(exception, request);
+            }
+        }
+
+        // Fallback if no specific handler matched
+        return fallbackHandler.handleException(exception, request);
+    }
+
+    /**
+     * Functional interface for type-specific exception handling.
+     *
+     * @param <T> exception type
+     */
+    @FunctionalInterface
+    public interface TypedExceptionHandler<T extends Exception> {
+        /**
+         * Handle exception of specific type.
+         *
+         * @param exception typed exception
+         * @param request CEF request
+         * @return HTTP response
+         */
+        ApiResponse<?> handle(T exception, CefRequest request);
+    }
+
+    /**
+     * Internal holder for typed handler.
+     */
+    private static class TypedHandler<T extends Exception> {
+        private final Class<T> exceptionType;
+        private final TypedExceptionHandler<T> handler;
+
+        TypedHandler(Class<T> exceptionType, TypedExceptionHandler<T> handler) {
+            this.exceptionType = exceptionType;
+            this.handler = handler;
+        }
+
+        boolean canHandle(Exception exception) {
+            return exceptionType.isInstance(exception);
+        }
+
+        @SuppressWarnings("unchecked")
+        ApiResponse<?> handle(Exception exception, CefRequest request) {
+            return handler.handle((T) exception, request);
+        }
+    }
+}

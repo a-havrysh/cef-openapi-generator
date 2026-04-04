@@ -29,7 +29,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: CEF OpenAPI Generator ${{ github.ref_name }}
           body: ${{ steps.tag.outputs.message }}

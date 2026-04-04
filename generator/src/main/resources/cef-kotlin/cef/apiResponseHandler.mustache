@@ -1,0 +1,147 @@
+package {{apiPackage}}.cef
+
+import {{apiPackage}}.protocol.ApiResponse
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.cef.callback.CefCallback
+import org.cef.handler.CefResourceHandlerAdapter
+import org.cef.misc.IntRef
+import org.cef.misc.StringRef
+import org.cef.network.CefRequest
+import org.cef.network.CefResponse
+import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
+import kotlin.math.min
+
+/**
+ * CEF Resource Handler that converts ApiResponse to CEF format.
+ * Auto-generated from OpenAPI specification.
+ */
+internal class ApiResponseHandler private constructor(
+    private val data: ByteBuffer,
+    private val contentType: String,
+    private val statusCode: Int,
+    private val statusText: String,
+    private val headers: Map<String, String>
+) : CefResourceHandlerAdapter() {
+
+    companion object {
+        private val MAPPER = ObjectMapper()
+
+        @JvmStatic
+        fun from(response: ApiResponse<*>?): ApiResponseHandler {
+            return from(response, null, null)
+        }
+
+        @JvmStatic
+        fun from(
+            response: ApiResponse<*>?,
+            origin: String?,
+            corsAllowedOrigins: List<String>?
+        ): ApiResponseHandler {
+            if (response == null) {
+                return empty()
+            }
+
+            val body = response.body
+            val contentType = response.contentType
+            val statusCode = response.statusCode
+
+            val headers = mutableMapOf<String, String>()
+            if (corsAllowedOrigins != null && origin != null) {
+                addCorsHeaders(headers, origin, corsAllowedOrigins)
+            }
+
+            if (body == null) {
+                return ApiResponseHandler(ByteBuffer.wrap(ByteArray(0)), contentType, statusCode, "OK", headers)
+            }
+
+            if (body is ByteArray) {
+                return ApiResponseHandler(ByteBuffer.wrap(body), contentType, statusCode, "OK", headers)
+            }
+
+            if (body is String) {
+                val bytes = body.toByteArray(StandardCharsets.UTF_8)
+                return ApiResponseHandler(ByteBuffer.wrap(bytes), contentType, statusCode, "OK", headers)
+            }
+
+            return runCatching {
+                val json = MAPPER.writeValueAsString(body)
+                val bytes = json.toByteArray(StandardCharsets.UTF_8)
+                ApiResponseHandler(ByteBuffer.wrap(bytes), contentType, statusCode, "OK", headers)
+            }.getOrElse { e ->
+                error(500, "Failed to serialize response: ${e.message}")
+            }
+        }
+
+        @JvmStatic
+        fun empty(): ApiResponseHandler {
+            return ApiResponseHandler(ByteBuffer.wrap(ByteArray(0)), "text/plain", 204, "No Content", emptyMap())
+        }
+
+        @JvmStatic
+        fun error(statusCode: Int, message: String): ApiResponseHandler {
+            val errorResponse = ErrorResponse(statusCode, message)
+            return runCatching {
+                val json = MAPPER.writeValueAsString(errorResponse)
+                val bytes = json.toByteArray(StandardCharsets.UTF_8)
+                ApiResponseHandler(ByteBuffer.wrap(bytes), "application/json", statusCode, message, emptyMap())
+            }.getOrElse {
+                val fallback = "{\"status\":$statusCode,\"message\":\"$message\"}"
+                val bytes = fallback.toByteArray(StandardCharsets.UTF_8)
+                ApiResponseHandler(ByteBuffer.wrap(bytes), "application/json", statusCode, message, emptyMap())
+            }
+        }
+
+        @JvmStatic
+        fun corsPreflightResponse(origin: String, corsAllowedOrigins: List<String>): ApiResponseHandler {
+            val headers = mutableMapOf<String, String>()
+            addCorsHeaders(headers, origin, corsAllowedOrigins)
+            headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+            headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Accept"
+            headers["Access-Control-Max-Age"] = "86400"
+            return ApiResponseHandler(ByteBuffer.wrap(ByteArray(0)), "text/plain", 200, "OK", headers)
+        }
+
+        private fun addCorsHeaders(
+            headers: MutableMap<String, String>,
+            origin: String,
+            corsAllowedOrigins: List<String>
+        ) {
+            if (corsAllowedOrigins.isEmpty()) {
+                headers["Access-Control-Allow-Origin"] = "*"
+                headers["Access-Control-Allow-Credentials"] = "false"
+            } else if (corsAllowedOrigins.contains(origin)) {
+                headers["Access-Control-Allow-Origin"] = origin
+                headers["Access-Control-Allow-Credentials"] = "true"
+            }
+        }
+    }
+
+    override fun processRequest(request: CefRequest, callback: CefCallback): Boolean {
+        callback.Continue()
+        return true
+    }
+
+    override fun getResponseHeaders(response: CefResponse, responseLength: IntRef, redirectUrl: StringRef) {
+        response.status = statusCode
+        response.statusText = statusText
+        response.mimeType = contentType
+        responseLength.set(data.remaining())
+        if (headers.isNotEmpty()) {
+            response.setHeaderMap(headers)
+        }
+    }
+
+    override fun readResponse(buffer: ByteArray, bytesToRead: Int, bytesRead: IntRef, callback: CefCallback): Boolean {
+        val toRead = min(bytesToRead, data.remaining())
+        data.get(buffer, 0, toRead)
+        bytesRead.set(toRead)
+        return toRead > 0
+    }
+
+    private data class ErrorResponse(
+        val status: Int,
+        val message: String,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+}

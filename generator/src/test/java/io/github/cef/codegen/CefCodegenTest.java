@@ -1,27 +1,28 @@
 package io.github.cef.codegen;
 
+import io.github.cef.codegen.config.FileSpec;
+import io.github.cef.codegen.config.PackageSuffix;
 import io.swagger.v3.oas.models.OpenAPI;
-import io.swagger.v3.oas.models.Operation;
-import io.swagger.v3.oas.models.parameters.Parameter;
-import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.ArraySchema;
-import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.media.IntegerSchema;
+import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.StringSchema;
+import io.swagger.v3.oas.models.parameters.Parameter;
+import io.swagger.v3.oas.models.servers.Server;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.CodegenParameter;
+import org.openapitools.codegen.CodegenProperty;
+import org.openapitools.codegen.model.ModelMap;
+import org.openapitools.codegen.model.ModelsMap;
 
 import java.math.BigDecimal;
 import java.util.*;
 
-import io.github.cef.codegen.config.FileSpec;
-import io.github.cef.codegen.config.PackageSuffix;
-
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Comprehensive tests for CefCodegen with 100% coverage target.
- */
 class CefCodegenTest {
 
     private CefCodegen codegen;
@@ -32,814 +33,416 @@ class CefCodegenTest {
         codegen.processOpts();
     }
 
-    @Test
-    void testGetName() {
-        assertEquals("cef", codegen.getName());
-    }
+    // ── Identity ────────────────────────────────────────────────────────
 
-    @Test
-    void testGetHelp() {
-        String help = codegen.getHelp();
-        assertNotNull(help);
-        assertTrue(help.contains("CEF"));
-    }
+    @Test void name() { assertEquals("cef", codegen.getName()); }
+    @Test void help() { assertTrue(codegen.getHelp().contains("CEF")); }
 
-    @Test
-    void testFromParameter_StringWithMinLength() {
-        Parameter param = new Parameter();
-        param.setName("title");
-        param.setIn("query");
+    // ── Config enums ────────────────────────────────────────────────────
 
-        StringSchema schema = new StringSchema();
-        schema.setMinLength(1);
-        schema.setMaxLength(200);
-        param.setSchema(schema);
+    @Nested
+    class ConfigEnums {
 
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
+        @Test void fileSpecValues()   { assertTrue(FileSpec.values().length >= 19); }
+        @Test void packageSuffixes()  { assertEquals(7, PackageSuffix.values().length); }
+        @Test void kotlinFileName()   { assertEquals("Service.kt", FileSpec.API_SERVICE.kotlinFileName()); }
+        @Test void kotlinFileNameReq(){ assertEquals("ApiRequest.kt", FileSpec.API_REQUEST.kotlinFileName()); }
 
-        assertNotNull(result);
-        assertTrue(result.vendorExtensions.containsKey("x-min-length"));
-        assertEquals(1, result.vendorExtensions.get("x-min-length"));
-        assertTrue(result.vendorExtensions.containsKey("x-max-length"));
-        assertEquals(200, result.vendorExtensions.get("x-max-length"));
-        assertTrue((Boolean) result.vendorExtensions.get("x-has-validation"));
-    }
+        @Test void allFileSpecsValid() {
+            for (var spec : FileSpec.values()) {
+                assertNotNull(spec.getTemplateName());
+                assertTrue(spec.getTemplateName().endsWith(".mustache"));
+                assertTrue(spec.getFileName().endsWith(".java"));
+            }
+        }
 
-    @Test
-    void testFromParameter_StringWithPattern() {
-        Parameter param = new Parameter();
-        param.setName("code");
+        @Test void allSuffixesStartWithDot() {
+            for (var suffix : PackageSuffix.values()) {
+                assertTrue(suffix.getValue().startsWith("."));
+            }
+        }
 
-        StringSchema schema = new StringSchema();
-        schema.setPattern("^[A-Z]{3}$");
-        param.setSchema(schema);
+        @Test void fileSpec() {
+            assertEquals("apiService.mustache", FileSpec.API_SERVICE.getTemplateName());
+            assertEquals("Service.java", FileSpec.API_SERVICE.getFileName());
+        }
 
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue(result.vendorExtensions.containsKey("x-pattern"));
-        assertEquals("^[A-Z]{3}$", result.vendorExtensions.get("x-pattern"));
-    }
-
-    @Test
-    void testFromParameter_StringWithEnum() {
-        Parameter param = new Parameter();
-        param.setName("status");
-
-        StringSchema schema = new StringSchema();
-        schema.setEnum(Arrays.asList("pending", "completed", "cancelled"));
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue(result.vendorExtensions.containsKey("x-has-enum-values"));
-        assertTrue(result.vendorExtensions.containsKey("x-enum-values-string"));
-        String enumStr = (String) result.vendorExtensions.get("x-enum-values-string");
-        assertTrue(enumStr.contains("\"pending\""));
-        assertTrue(enumStr.contains("\"completed\""));
-    }
-
-    @Test
-    void testFromParameter_DateFormat() {
-        Parameter param = new Parameter();
-        param.setName("startDate");
-        param.setIn("query");
-
-        StringSchema schema = new StringSchema();
-        schema.setType("string");
-        schema.setFormat("date");
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        // Date format detection only works if param.isString is true
-        // This is set by parent OpenAPI Generator based on schema type
-        if (result.isString) {
-            assertTrue(result.vendorExtensions.containsKey("x-is-date"));
-            assertTrue((Boolean) result.vendorExtensions.get("x-is-date"));
-            assertEquals("java.time.LocalDate", result.vendorExtensions.get("x-java-type"));
+        @Test void packageSuffix() {
+            assertEquals(".protocol", PackageSuffix.PROTOCOL.getValue());
         }
     }
 
-    @Test
-    void testFromParameter_DateTimeFormat() {
-        Parameter param = new Parameter();
-        param.setName("createdAt");
-        param.setIn("query");
+    // ── Template configuration ──────────────────────────────────────────
 
-        StringSchema schema = new StringSchema();
-        schema.setType("string");
-        schema.setFormat("date-time");
-        param.setSchema(schema);
+    @Nested
+    class TemplateConfig {
 
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
+        @Test void apiTemplates() {
+            assertTrue(codegen.apiTemplateFiles().containsKey("api/apiService.mustache"));
+            assertTrue(codegen.apiTemplateFiles().containsKey("api/mockService.mustache"));
+        }
 
-        // DateTime format detection only works if param.isString is true
-        if (result.isString) {
-            assertTrue(result.vendorExtensions.containsKey("x-is-date-time"));
-            assertTrue((Boolean) result.vendorExtensions.get("x-is-date-time"));
-            assertEquals("java.time.OffsetDateTime", result.vendorExtensions.get("x-java-type"));
+        @Test void supportingFilesContainAllLayers() {
+            var templates = codegen.supportingFiles().stream()
+                .map(sf -> sf.getTemplateFile()).toList();
+
+            // Protocol
+            assertTrue(templates.contains("protocol/httpMethod.mustache"));
+            assertTrue(templates.contains("protocol/apiRequest.mustache"));
+            assertTrue(templates.contains("protocol/apiResponse.mustache"));
+            assertTrue(templates.contains("protocol/multipartFile.mustache"));
+            // Routing
+            assertTrue(templates.contains("routing/routeTree.mustache"));
+            assertTrue(templates.contains("routing/routeNode.mustache"));
+            // Exception
+            assertTrue(templates.contains("exception/apiException.mustache"));
+            assertTrue(templates.contains("exception/validationException.mustache"));
+            // Validation
+            assertTrue(templates.contains("validation/parameterValidator.mustache"));
+            // Interceptor
+            assertTrue(templates.contains("interceptor/requestInterceptor.mustache"));
+            assertTrue(templates.contains("interceptor/corsInterceptor.mustache"));
+            assertTrue(templates.contains("interceptor/validationInterceptor.mustache"));
+            // CEF
+            assertTrue(templates.contains("cef/apiCefRequestHandler.mustache"));
+            assertTrue(templates.contains("cef/apiCefRequestHandlerBuilder.mustache"));
+            // Utility
+            assertTrue(templates.contains("util/contentTypeResolver.mustache"));
+            assertTrue(templates.contains("util/multipartParser.mustache"));
+        }
+
+        @Test void layerOutputFilenames() {
+            var filenames = codegen.supportingFiles().stream()
+                .map(sf -> sf.getDestinationFilename()).toList();
+
+            assertTrue(filenames.stream().anyMatch(f -> f.contains("HttpMethod")));
+            assertTrue(filenames.stream().anyMatch(f -> f.contains("RouteTree")));
+            assertTrue(filenames.stream().anyMatch(f -> f.contains("ApiCefRequestHandler")));
+            assertTrue(filenames.stream().anyMatch(f -> f.contains("ApiException")));
+            assertTrue(filenames.stream().anyMatch(f -> f.contains("ParameterValidator")));
+            assertTrue(filenames.stream().anyMatch(f -> f.contains("RequestInterceptor")));
+            assertTrue(filenames.stream().anyMatch(f -> f.contains("ContentTypeResolver")));
+        }
+
+        @Test void modelNamingSuffix() {
+            codegen.additionalProperties().put("modelSuffix", "Dto");
+            codegen.processOpts();
+            assertEquals("Dto", codegen.getModelNameSuffix());
+        }
+
+        @Test void modelNamingPrefix() {
+            codegen.additionalProperties().put("modelPrefix", "Api");
+            codegen.processOpts();
+            assertEquals("Api", codegen.getModelNamePrefix());
         }
     }
 
-    @Test
-    void testFromParameter_EmailFormat() {
-        Parameter param = new Parameter();
-        param.setName("email");
+    // ── API filename routing ────────────────────────────────────────────
 
-        StringSchema schema = new StringSchema();
-        schema.setFormat("email");
-        param.setSchema(schema);
+    @Nested
+    class ApiFilename {
 
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
+        @Test void serviceTemplate() {
+            var filename = codegen.apiFilename("apiService.mustache", "Tasks");
+            assertTrue(filename.contains("service"), "Should route to service subdir");
+            assertTrue(filename.contains("Service.java"));
+        }
 
-        assertTrue(result.vendorExtensions.containsKey("x-format"));
-        assertEquals("email", result.vendorExtensions.get("x-format"));
-    }
-
-    @Test
-    void testFromParameter_UuidFormat() {
-        Parameter param = new Parameter();
-        param.setName("userId");
-
-        StringSchema schema = new StringSchema();
-        schema.setFormat("uuid");
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertEquals("uuid", result.vendorExtensions.get("x-format"));
-    }
-
-    @Test
-    void testFromParameter_IntegerWithMinMax() {
-        Parameter param = new Parameter();
-        param.setName("page");
-
-        IntegerSchema schema = new IntegerSchema();
-        schema.setMinimum(new BigDecimal("1"));
-        schema.setMaximum(new BigDecimal("1000"));
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue(result.vendorExtensions.containsKey("x-minimum"));
-        assertTrue(result.vendorExtensions.containsKey("x-maximum"));
-        assertEquals(new BigDecimal("1"), result.vendorExtensions.get("x-minimum"));
-        assertEquals(new BigDecimal("1000"), result.vendorExtensions.get("x-maximum"));
-    }
-
-    @Test
-    void testFromParameter_IntegerWithExclusiveBounds() {
-        Parameter param = new Parameter();
-        param.setName("value");
-
-        IntegerSchema schema = new IntegerSchema();
-        schema.setMinimum(new BigDecimal("0"));
-        schema.setExclusiveMinimum(true);
-        schema.setMaximum(new BigDecimal("100"));
-        schema.setExclusiveMaximum(true);
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue((Boolean) result.vendorExtensions.get("x-exclusive-minimum"));
-        assertTrue((Boolean) result.vendorExtensions.get("x-exclusive-maximum"));
-    }
-
-    @Test
-    void testFromParameter_IntegerWithMultipleOf() {
-        Parameter param = new Parameter();
-        param.setName("count");
-
-        IntegerSchema schema = new IntegerSchema();
-        schema.setMultipleOf(new BigDecimal("5"));
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue(result.vendorExtensions.containsKey("x-multiple-of"));
-        assertEquals(new BigDecimal("5"), result.vendorExtensions.get("x-multiple-of"));
-    }
-
-    @Test
-    void testFromParameter_ArrayWithConstraints() {
-        Parameter param = new Parameter();
-        param.setName("tags");
-
-        ArraySchema arraySchema = new ArraySchema();
-        arraySchema.setMinItems(1);
-        arraySchema.setMaxItems(10);
-        arraySchema.setUniqueItems(true);
-
-        StringSchema itemSchema = new StringSchema();
-        itemSchema.setEnum(Arrays.asList("java", "kotlin", "scala"));
-        arraySchema.setItems(itemSchema);
-
-        param.setSchema(arraySchema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue(result.vendorExtensions.containsKey("x-min-items"));
-        assertTrue(result.vendorExtensions.containsKey("x-max-items"));
-        assertTrue(result.vendorExtensions.containsKey("x-unique-items"));
-        assertEquals(1, result.vendorExtensions.get("x-min-items"));
-        assertEquals(10, result.vendorExtensions.get("x-max-items"));
-        assertTrue((Boolean) result.vendorExtensions.get("x-unique-items"));
-        assertTrue(result.vendorExtensions.containsKey("x-item-enum-values"));
-    }
-
-    @Test
-    void testFromParameter_Nullable() {
-        Parameter param = new Parameter();
-        param.setName("description");
-
-        StringSchema schema = new StringSchema();
-        schema.setNullable(true);
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue(result.vendorExtensions.containsKey("x-nullable"));
-        assertTrue((Boolean) result.vendorExtensions.get("x-nullable"));
-    }
-
-    @Test
-    void testFromParameter_Required() {
-        Parameter param = new Parameter();
-        param.setName("id");
-        param.setRequired(true);
-        param.setSchema(new StringSchema());
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue(result.required);
-        assertTrue((Boolean) result.vendorExtensions.get("x-has-validation"));
-    }
-
-    @Test
-    void testFromParameter_NoSchema() {
-        Parameter param = new Parameter();
-        param.setName("test");
-        param.setSchema(null);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertNotNull(result);
-        assertFalse(result.vendorExtensions.containsKey("x-has-validation"));
-    }
-
-    @Test
-    void testFromParameter_NoConstraints() {
-        Parameter param = new Parameter();
-        param.setName("simple");
-        param.setRequired(false);
-        param.setSchema(new StringSchema());
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertFalse((Boolean) result.vendorExtensions.getOrDefault("x-has-validation", false));
-    }
-
-    @Test
-    void testModelNameSuffix() {
-        codegen.additionalProperties().put("modelSuffix", "Dto");
-        codegen.processOpts();
-
-        assertEquals("Dto", codegen.getModelNameSuffix());
-    }
-
-    @Test
-    void testModelNamePrefix() {
-        codegen.additionalProperties().put("modelPrefix", "Api");
-        codegen.processOpts();
-
-        assertEquals("Api", codegen.getModelNamePrefix());
-    }
-
-    @Test
-    void testApiTemplatesConfigured() {
-        codegen.processOpts();
-
-        assertTrue(codegen.apiTemplateFiles().containsKey("api/apiService.mustache"));
-        assertTrue(codegen.apiTemplateFiles().containsKey("api/mockService.mustache"));
-    }
-
-    @Test
-    void testSupportingFilesGenerated() {
-        codegen.processOpts();
-
-        List<String> fileNames = codegen.supportingFiles().stream()
-            .map(sf -> sf.getTemplateFile())
-            .toList();
-
-        // Protocol layer
-        assertTrue(fileNames.contains("protocol/httpMethod.mustache"));
-        assertTrue(fileNames.contains("protocol/apiRequest.mustache"));
-        assertTrue(fileNames.contains("protocol/apiResponse.mustache"));
-        assertTrue(fileNames.contains("protocol/multipartFile.mustache"));
-
-        // Routing layer
-        assertTrue(fileNames.contains("routing/routeTree.mustache"));
-        assertTrue(fileNames.contains("routing/routeNode.mustache"));
-
-        // Exception layer
-        assertTrue(fileNames.contains("exception/apiException.mustache"));
-        assertTrue(fileNames.contains("exception/validationException.mustache"));
-
-        // Validation layer
-        assertTrue(fileNames.contains("validation/parameterValidator.mustache"));
-
-        // Interceptor layer
-        assertTrue(fileNames.contains("interceptor/requestInterceptor.mustache"));
-        assertTrue(fileNames.contains("interceptor/validationInterceptor.mustache"));
-        assertTrue(fileNames.contains("interceptor/corsInterceptor.mustache"));
-        assertTrue(fileNames.contains("interceptor/apiKeyAuthInterceptor.mustache"));
-        assertTrue(fileNames.contains("interceptor/bearerAuthInterceptor.mustache"));
-        assertTrue(fileNames.contains("interceptor/basicAuthInterceptor.mustache"));
-
-        // Utility layer
-        assertTrue(fileNames.contains("protocol/contentTypeResolver.mustache"));
-        assertTrue(fileNames.contains("protocol/multipartParser.mustache"));
-
-        // CEF layer
-        assertTrue(fileNames.contains("cef/apiCefRequestHandler.mustache"));
-        assertTrue(fileNames.contains("cef/apiCefRequestHandlerBuilder.mustache"));
-    }
-
-    @Test
-    void testFileSpecKotlinFileName() {
-        assertEquals("Service.kt", FileSpec.API_SERVICE.kotlinFileName());
-        assertEquals("ApiRequest.kt", FileSpec.API_REQUEST.kotlinFileName());
-    }
-
-    @Test
-    void testFileSpecEnum() {
-        FileSpec spec = FileSpec.API_SERVICE;
-        assertEquals("apiService.mustache", spec.getTemplateName());
-        assertEquals("Service.java", spec.getFileName());
-    }
-
-    @Test
-    void testPackageSuffixEnum() {
-        PackageSuffix suffix = PackageSuffix.PROTOCOL;
-        assertEquals(".protocol", suffix.getValue());
-    }
-
-    @Test
-    void testImportFilter() {
-        // ImportFilter is now a utility class — test its filtering methods
-        assertTrue(io.github.cef.codegen.processing.ImportFilter.shouldFilterForKotlin("swagger", null));
-        assertTrue(io.github.cef.codegen.processing.ImportFilter.shouldFilterForKotlin("java.util.List", null));
-        assertFalse(io.github.cef.codegen.processing.ImportFilter.shouldFilterForKotlin("com.example.MyType", null));
-    }
-
-    @Test
-    void testTypeConverter() {
-        // TypeConverter provides static utility methods
-        assertEquals("String", io.github.cef.codegen.processing.TypeConverter.detectType(List.of("hello")));
-        assertEquals("Integer", io.github.cef.codegen.processing.TypeConverter.detectType(List.of(42)));
-        assertEquals("\"hello\"", io.github.cef.codegen.processing.TypeConverter.formatLiteral("hello", "String"));
-        assertEquals("42", io.github.cef.codegen.processing.TypeConverter.formatLiteral(42, "Integer"));
-        assertEquals("List", io.github.cef.codegen.processing.TypeConverter.kotlinify("java.util.List"));
-        assertEquals("Any", io.github.cef.codegen.processing.TypeConverter.kotlinify("Object"));
-        assertEquals("Int", io.github.cef.codegen.processing.TypeConverter.kotlinify("Integer"));
-    }
-
-    @Test
-    void testAllFileSpecValues() {
-        FileSpec[] values = FileSpec.values();
-        assertTrue(values.length > 15);
-
-        // Verify all file specs have non-null template and filename
-        for (FileSpec spec : values) {
-            assertNotNull(spec.getTemplateName());
-            assertNotNull(spec.getFileName());
-            assertTrue(spec.getTemplateName().endsWith(".mustache"));
-            assertTrue(spec.getFileName().endsWith(".java"));
+        @Test void otherTemplate() {
+            var filename = codegen.apiFilename("other.mustache", "Tasks");
+            assertNotNull(filename);
         }
     }
 
-    @Test
-    void testAllPackageSuffixValues() {
-        PackageSuffix[] values = PackageSuffix.values();
-        assertEquals(7, values.length);
+    // ── Parameter constraint extraction ─────────────────────────────────
 
-        // Verify all suffixes start with dot
-        for (PackageSuffix suffix : values) {
-            assertTrue(suffix.getValue().startsWith("."));
+    @Nested
+    class ParameterExtraction {
+
+        @Nested
+        class StringConstraints {
+
+            @Test void minMaxLength() {
+                var result = extractParam(stringSchema(s -> { s.setMinLength(1); s.setMaxLength(200); }));
+                assertEquals(1, result.vendorExtensions.get("x-min-length"));
+                assertEquals(200, result.vendorExtensions.get("x-max-length"));
+                assertTrue((Boolean) result.vendorExtensions.get("x-has-validation"));
+            }
+
+            @Test void pattern() {
+                var result = extractParam(stringSchema(s -> s.setPattern("^[A-Z]{3}$")));
+                assertEquals("^[A-Z]{3}$", result.vendorExtensions.get("x-pattern"));
+            }
+
+            @Test void enumValues() {
+                var result = extractParam(stringSchema(s -> s.setEnum(List.of("pending", "completed"))));
+                assertTrue((Boolean) result.vendorExtensions.get("x-has-enum-values"));
+                var enumStr = (String) result.vendorExtensions.get("x-enum-values-string");
+                assertTrue(enumStr.contains("\"pending\""));
+            }
+
+            @Test void singleEnum() {
+                var result = extractParam(stringSchema(s -> s.setEnum(List.of("ONLY"))));
+                assertEquals("\"ONLY\"", result.vendorExtensions.get("x-enum-values-string"));
+            }
+
+            @Test void emptyEnum() {
+                var result = extractParam(stringSchema(s -> s.setEnum(Collections.emptyList())));
+                assertFalse(result.vendorExtensions.containsKey("x-has-enum-values"));
+            }
+
+            @Test void dateFormat() {
+                var result = extractParam(stringSchema(s -> s.setFormat("date")));
+                if (result.isString) {
+                    assertTrue((Boolean) result.vendorExtensions.get("x-is-date"));
+                    assertEquals("java.time.LocalDate", result.vendorExtensions.get("x-java-type"));
+                }
+            }
+
+            @Test void dateTimeFormat() {
+                var result = extractParam(stringSchema(s -> s.setFormat("date-time")));
+                if (result.isString) {
+                    assertTrue((Boolean) result.vendorExtensions.get("x-is-date-time"));
+                }
+            }
+
+            @Test void emailFormat() {
+                var result = extractParam(stringSchema(s -> s.setFormat("email")));
+                assertEquals("email", result.vendorExtensions.get("x-format"));
+            }
+
+            @Test void uuidFormat() {
+                var result = extractParam(stringSchema(s -> s.setFormat("uuid")));
+                assertEquals("uuid", result.vendorExtensions.get("x-format"));
+            }
+
+            @Test void allCombined() {
+                var result = extractParam(stringSchema(s -> {
+                    s.setMinLength(5); s.setMaxLength(50);
+                    s.setPattern("^[a-z]+$"); s.setFormat("email");
+                    s.setEnum(List.of("a", "b"));
+                }));
+                assertEquals(5, result.vendorExtensions.get("x-min-length"));
+                assertEquals(50, result.vendorExtensions.get("x-max-length"));
+                assertNotNull(result.vendorExtensions.get("x-pattern"));
+                assertEquals("email", result.vendorExtensions.get("x-format"));
+                assertTrue((Boolean) result.vendorExtensions.get("x-has-enum-values"));
+            }
+        }
+
+        @Nested
+        class NumericConstraints {
+
+            @Test void minMax() {
+                var result = extractParam(intSchema(s -> {
+                    s.setMinimum(new BigDecimal("1")); s.setMaximum(new BigDecimal("1000"));
+                }));
+                assertEquals(new BigDecimal("1"), result.vendorExtensions.get("x-minimum"));
+                assertEquals(new BigDecimal("1000"), result.vendorExtensions.get("x-maximum"));
+            }
+
+            @Test void exclusiveBounds() {
+                var result = extractParam(intSchema(s -> {
+                    s.setMinimum(new BigDecimal("0")); s.setExclusiveMinimum(true);
+                    s.setMaximum(new BigDecimal("100")); s.setExclusiveMaximum(true);
+                }));
+                assertTrue((Boolean) result.vendorExtensions.get("x-exclusive-minimum"));
+                assertTrue((Boolean) result.vendorExtensions.get("x-exclusive-maximum"));
+            }
+
+            @Test void multipleOf() {
+                var result = extractParam(intSchema(s -> s.setMultipleOf(new BigDecimal("5"))));
+                assertEquals(new BigDecimal("5"), result.vendorExtensions.get("x-multiple-of"));
+            }
+        }
+
+        @Nested
+        class ArrayConstraints {
+
+            @Test void itemsConstraints() {
+                var schema = new ArraySchema();
+                schema.setMinItems(1); schema.setMaxItems(10); schema.setUniqueItems(true);
+                var itemSchema = new StringSchema();
+                itemSchema.setEnum(List.of("java", "kotlin"));
+                schema.setItems(itemSchema);
+
+                var result = extractParam(schema);
+                assertEquals(1, result.vendorExtensions.get("x-min-items"));
+                assertEquals(10, result.vendorExtensions.get("x-max-items"));
+                assertTrue((Boolean) result.vendorExtensions.get("x-unique-items"));
+                assertTrue(result.vendorExtensions.containsKey("x-item-enum-values"));
+            }
+        }
+
+        @Nested
+        class Misc {
+
+            @Test void nullable() {
+                var result = extractParam(stringSchema(s -> s.setNullable(true)));
+                assertTrue((Boolean) result.vendorExtensions.get("x-nullable"));
+            }
+
+            @Test void required() {
+                var param = new Parameter();
+                param.setName("id"); param.setRequired(true); param.setSchema(new StringSchema());
+                var result = codegen.fromParameter(param, new HashSet<>());
+                assertTrue((Boolean) result.vendorExtensions.get("x-has-validation"));
+            }
+
+            @Test void noSchema() {
+                var param = new Parameter();
+                param.setName("test"); param.setSchema(null);
+                var result = codegen.fromParameter(param, new HashSet<>());
+                assertFalse(result.vendorExtensions.containsKey("x-has-validation"));
+            }
+
+            @Test void noConstraints() {
+                var param = new Parameter();
+                param.setName("simple"); param.setRequired(false); param.setSchema(new StringSchema());
+                var result = codegen.fromParameter(param, new HashSet<>());
+                assertFalse((Boolean) result.vendorExtensions.getOrDefault("x-has-validation", false));
+            }
+        }
+
+        // helpers
+        private CodegenParameter extractParam(Schema<?> schema) {
+            var param = new Parameter();
+            param.setName("test"); param.setSchema(schema);
+            return codegen.fromParameter(param, new HashSet<>());
+        }
+
+        private StringSchema stringSchema(java.util.function.Consumer<StringSchema> config) {
+            var s = new StringSchema(); config.accept(s); return s;
+        }
+
+        private IntegerSchema intSchema(java.util.function.Consumer<IntegerSchema> config) {
+            var s = new IntegerSchema(); config.accept(s); return s;
         }
     }
 
-    @Test
-    void testFromParameter_AllConstraintsCombined() {
-        Parameter param = new Parameter();
-        param.setName("complex");
-        param.setRequired(true);
+    // ── Model post-processing ───────────────────────────────────────────
 
-        StringSchema schema = new StringSchema();
-        schema.setMinLength(5);
-        schema.setMaxLength(50);
-        schema.setPattern("^[a-zA-Z]+$");
-        schema.setEnum(Arrays.asList("alpha", "beta", "gamma"));
-        schema.setFormat("email");
-        param.setSchema(schema);
+    @Nested
+    class ModelPostProcessing {
 
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
+        @Test void removesSwaggerImports() {
+            var model = new CodegenModel();
+            model.imports = new HashSet<>(Set.of(
+                "io.swagger.annotations.ApiModel",
+                "org.openapitools.jackson.nullable.JsonNullable",
+                "java.util.List"
+            ));
+            codegen.postProcessModelProperty(model, new CodegenProperty());
 
-        assertTrue((Boolean) result.vendorExtensions.get("x-has-validation"));
-        assertEquals(5, result.vendorExtensions.get("x-min-length"));
-        assertEquals(50, result.vendorExtensions.get("x-max-length"));
-        assertEquals("^[a-zA-Z]+$", result.vendorExtensions.get("x-pattern"));
-        assertTrue(result.vendorExtensions.containsKey("x-has-enum-values"));
-        assertEquals("email", result.vendorExtensions.get("x-format"));
+            assertFalse(model.imports.contains("io.swagger.annotations.ApiModel"));
+            assertFalse(model.imports.contains("org.openapitools.jackson.nullable.JsonNullable"));
+            assertTrue(model.imports.contains("java.util.List"));
+        }
+
+        @Test void handlesNullImports() {
+            var model = new CodegenModel();
+            model.imports = null;
+            assertDoesNotThrow(() -> codegen.postProcessModelProperty(model, new CodegenProperty()));
+        }
+
+        @Test void handlesEmptyImports() {
+            var model = new CodegenModel();
+            model.imports = new HashSet<>();
+            codegen.postProcessModelProperty(model, new CodegenProperty());
+            assertTrue(model.imports.isEmpty());
+        }
+
+        @Test void enumFieldProcessing() {
+            var model = enumModel("ACTIVE", "INACTIVE");
+            model.vendorExtensions.put("x-enum-field-priority", Arrays.asList(1, 2));
+            model.vendorExtensions.put("x-enum-field-displayName", Arrays.asList("Active", "Inactive"));
+
+            var result = codegen.postProcessModels(wrapModel(model));
+
+            assertNotNull(result);
+            assertTrue(model.vendorExtensions.containsKey("enumFields"));
+            assertTrue((Boolean) model.vendorExtensions.get("hasEnumFields"));
+        }
+
+        @Test void enumWithMultipleFieldTypes() {
+            var model = enumModel("ACTIVE", "INACTIVE");
+            model.vendorExtensions.put("x-enum-field-priority", Arrays.asList(1, 2));
+            model.vendorExtensions.put("x-enum-field-displayName", Arrays.asList("Active", "Inactive"));
+            model.vendorExtensions.put("x-enum-field-enabled", Arrays.asList(true, false));
+            model.vendorExtensions.put("x-enum-field-weight", Arrays.asList(1.5, 0.5));
+            model.vendorExtensions.put("x-enum-field-code", Arrays.asList(100L, 200L));
+
+            codegen.postProcessModels(wrapModel(model));
+
+            assertTrue(model.vendorExtensions.containsKey("enumFields"));
+            assertTrue((Boolean) model.vendorExtensions.get("hasEnumFields"));
+        }
     }
 
-    @Test
-    void testFromParameter_NumberWithAllConstraints() {
-        Parameter param = new Parameter();
-        param.setName("price");
+    // ── Server URL processing ───────────────────────────────────────────
 
-        Schema<BigDecimal> schema = new Schema<>();
-        schema.setType("number");
-        schema.setMinimum(new BigDecimal("0.01"));
-        schema.setMaximum(new BigDecimal("999999.99"));
-        schema.setExclusiveMinimum(true);
-        schema.setMultipleOf(new BigDecimal("0.01"));
-        param.setSchema(schema);
+    @Nested
+    class ServerUrls {
 
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
+        @Test void extractsServerUrls() {
+            var openAPI = new OpenAPI();
+            var s1 = new Server(); s1.setUrl("http://localhost:8080");
+            var s2 = new Server(); s2.setUrl("https://api.example.com");
+            openAPI.setServers(List.of(s1, s2));
+            codegen.setOpenAPI(openAPI);
 
-        assertEquals(new BigDecimal("0.01"), result.vendorExtensions.get("x-minimum"));
-        assertEquals(new BigDecimal("999999.99"), result.vendorExtensions.get("x-maximum"));
-        assertTrue((Boolean) result.vendorExtensions.get("x-exclusive-minimum"));
-        assertEquals(new BigDecimal("0.01"), result.vendorExtensions.get("x-multiple-of"));
-    }
+            var result = codegen.postProcessSupportingFileData(new HashMap<>());
 
-    @Test
-    void testFromParameter_ArrayWithItemEnum() {
-        Parameter param = new Parameter();
-        param.setName("languages");
-
-        ArraySchema arraySchema = new ArraySchema();
-        arraySchema.setMinItems(1);
-        arraySchema.setMaxItems(5);
-        arraySchema.setUniqueItems(true);
-
-        StringSchema itemSchema = new StringSchema();
-        itemSchema.setEnum(Arrays.asList("Java", "Kotlin", "Scala"));
-        arraySchema.setItems(itemSchema);
-
-        param.setSchema(arraySchema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertEquals(1, result.vendorExtensions.get("x-min-items"));
-        assertEquals(5, result.vendorExtensions.get("x-max-items"));
-        assertTrue((Boolean) result.vendorExtensions.get("x-unique-items"));
-        assertTrue(result.vendorExtensions.containsKey("x-item-enum-values"));
-        String itemEnum = (String) result.vendorExtensions.get("x-item-enum-values-string");
-        assertTrue(itemEnum.contains("Java"));
-    }
-
-    @Test
-    void testApiFilename_ServiceTemplate() {
-        String filename = codegen.apiFilename("apiService.mustache", "Tasks");
-        assertNotNull(filename);
-        assertTrue(filename.contains("Service.java") || filename.contains("service"));
-    }
-
-    @Test
-    void testApiFilename_OtherTemplate() {
-        String filename = codegen.apiFilename("other.mustache", "Tasks");
-        assertNotNull(filename);
-    }
-
-    @Test
-    void testPostProcessModelProperty() {
-        org.openapitools.codegen.CodegenModel model = new org.openapitools.codegen.CodegenModel();
-        model.imports = new HashSet<>();
-        model.imports.add("io.swagger.annotations.ApiModel");
-        model.imports.add("java.util.List");
-
-        org.openapitools.codegen.CodegenProperty property = new org.openapitools.codegen.CodegenProperty();
-
-        codegen.postProcessModelProperty(model, property);
-
-        // After cleanup, swagger imports should be removed
-        assertFalse(model.imports.contains("io.swagger.annotations.ApiModel"));
-        assertTrue(model.imports.contains("java.util.List"));
-    }
-
-    @Test
-    void testGeneratorLayerRegistersAllLayers() {
-        var fileNames = codegen.supportingFiles().stream()
-            .map(sf -> sf.getDestinationFilename())
-            .toList();
-
-        // Verify files from each layer exist
-        assertTrue(fileNames.stream().anyMatch(f -> f.contains("HttpMethod")));
-        assertTrue(fileNames.stream().anyMatch(f -> f.contains("RouteTree")));
-        assertTrue(fileNames.stream().anyMatch(f -> f.contains("ApiCefRequestHandler")));
-        assertTrue(fileNames.stream().anyMatch(f -> f.contains("ApiException")));
-        assertTrue(fileNames.stream().anyMatch(f -> f.contains("ParameterValidator")));
-        assertTrue(fileNames.stream().anyMatch(f -> f.contains("RequestInterceptor")));
-        assertTrue(fileNames.stream().anyMatch(f -> f.contains("ContentTypeResolver")));
-    }
-
-    @Test
-    void testPostProcessModels() {
-        org.openapitools.codegen.model.ModelsMap modelsMap = new org.openapitools.codegen.model.ModelsMap();
-        List<org.openapitools.codegen.model.ModelMap> models = new ArrayList<>();
-
-        org.openapitools.codegen.model.ModelMap modelMap = new org.openapitools.codegen.model.ModelMap();
-        org.openapitools.codegen.CodegenModel model = new org.openapitools.codegen.CodegenModel();
-        model.imports = new HashSet<>();
-        model.imports.add("io.swagger.annotations.ApiModel");
-        model.imports.add("org.openapitools.jackson.nullable.JsonNullable");
-        model.imports.add("java.util.List");
-
-        // Test enum processing
-        model.isEnum = true;
-        model.allowableValues = new HashMap<>();
-        model.allowableValues.put("values", Arrays.asList("VALUE1", "VALUE2"));
-
-        modelMap.setModel(model);
-        models.add(modelMap);
-        modelsMap.setModels(models);
-
-        org.openapitools.codegen.model.ModelsMap result = codegen.postProcessModels(modelsMap);
-
-        assertNotNull(result);
-        // Swagger imports should be removed
-        assertFalse(model.imports.contains("io.swagger.annotations.ApiModel"));
-        assertFalse(model.imports.contains("org.openapitools.jackson.nullable.JsonNullable"));
-        assertTrue(model.imports.contains("java.util.List"));
-    }
-
-    @Test
-    void testPostProcessSupportingFileData() {
-        OpenAPI openAPI = new OpenAPI();
-        io.swagger.v3.oas.models.servers.Server server1 = new io.swagger.v3.oas.models.servers.Server();
-        server1.setUrl("http://localhost:8080");
-        io.swagger.v3.oas.models.servers.Server server2 = new io.swagger.v3.oas.models.servers.Server();
-        server2.setUrl("https://api.example.com");
-
-        openAPI.setServers(Arrays.asList(server1, server2));
-        codegen.setOpenAPI(openAPI);
-
-        Map<String, Object> bundle = new HashMap<>();
-        Map<String, Object> result = codegen.postProcessSupportingFileData(bundle);
-
-        assertNotNull(result);
-        assertTrue(result.containsKey("serverUrls"));
-        assertTrue(result.containsKey("hasServers"));
-
-        @SuppressWarnings("unchecked")
-        List<String> serverUrls = (List<String>) result.get("serverUrls");
-        assertEquals(2, serverUrls.size());
-        assertTrue(serverUrls.contains("http://localhost:8080"));
-        assertTrue(serverUrls.contains("https://api.example.com"));
-    }
-
-    @Test
-    void testPostProcessSupportingFileData_NoServers() {
-        OpenAPI openAPI = new OpenAPI();
-        openAPI.setServers(Collections.emptyList());
-        codegen.setOpenAPI(openAPI);
-
-        Map<String, Object> bundle = new HashMap<>();
-        Map<String, Object> result = codegen.postProcessSupportingFileData(bundle);
-
-        assertNotNull(result);
-    }
-
-    @Test
-    void testPostProcessSupportingFileData_NullServerUrl() {
-        OpenAPI openAPI = new OpenAPI();
-        io.swagger.v3.oas.models.servers.Server server = new io.swagger.v3.oas.models.servers.Server();
-        server.setUrl(null);
-        openAPI.setServers(Arrays.asList(server));
-        codegen.setOpenAPI(openAPI);
-
-        Map<String, Object> bundle = new HashMap<>();
-        Map<String, Object> result = codegen.postProcessSupportingFileData(bundle);
-
-        assertNotNull(result);
-        if (result.containsKey("serverUrls")) {
+            assertTrue((Boolean) result.get("hasServers"));
             @SuppressWarnings("unchecked")
-            List<String> serverUrls = (List<String>) result.get("serverUrls");
-            assertTrue(serverUrls.isEmpty());
+            var urls = (List<String>) result.get("serverUrls");
+            assertEquals(2, urls.size());
+            assertTrue(urls.contains("http://localhost:8080"));
+        }
+
+        @Test void emptyServers() {
+            var openAPI = new OpenAPI();
+            openAPI.setServers(Collections.emptyList());
+            codegen.setOpenAPI(openAPI);
+
+            var result = codegen.postProcessSupportingFileData(new HashMap<>());
+            assertFalse(result.containsKey("hasServers"));
+        }
+
+        @Test void nullServerUrl() {
+            var openAPI = new OpenAPI();
+            var s = new Server(); s.setUrl(null);
+            openAPI.setServers(List.of(s));
+            codegen.setOpenAPI(openAPI);
+
+            var result = codegen.postProcessSupportingFileData(new HashMap<>());
+            assertFalse(result.containsKey("hasServers"));
         }
     }
 
-    @Test
-    void testPostProcessModels_WithEnumFields() {
-        org.openapitools.codegen.model.ModelsMap modelsMap = new org.openapitools.codegen.model.ModelsMap();
-        List<org.openapitools.codegen.model.ModelMap> models = new ArrayList<>();
+    // ── helpers ──────────────────────────────────────────────────────────
 
-        org.openapitools.codegen.model.ModelMap modelMap = new org.openapitools.codegen.model.ModelMap();
-        org.openapitools.codegen.CodegenModel model = new org.openapitools.codegen.CodegenModel();
+    private CodegenModel enumModel(String... values) {
+        var model = new CodegenModel();
         model.isEnum = true;
+        model.imports = new HashSet<>();
         model.allowableValues = new HashMap<>();
-        model.allowableValues.put("values", Arrays.asList("ACTIVE", "INACTIVE", "PENDING"));
+        model.allowableValues.put("values", Arrays.asList(values));
 
-        // Add vendor extensions with custom enum fields
-        model.vendorExtensions = new HashMap<>();
-        model.vendorExtensions.put("x-enum-field-priority", Arrays.asList(1, 2, 3));
-        model.vendorExtensions.put("x-enum-field-displayName", Arrays.asList("Active", "Inactive", "Pending"));
-        model.vendorExtensions.put("x-enum-field-active", Arrays.asList(true, false, true));
-
-        modelMap.setModel(model);
-        models.add(modelMap);
-        modelsMap.setModels(models);
-
-        org.openapitools.codegen.model.ModelsMap result = codegen.postProcessModels(modelsMap);
-
-        assertNotNull(result);
-        // Enum processing should populate enumFields
-        assertTrue(model.vendorExtensions.containsKey("enumFields") ||
-                   model.vendorExtensions.containsKey("x-enum-field-priority"));
-    }
-
-    @Test
-    void testAllEnumValues() {
-        // FileSpec and PackageSuffix are still enums
-        assertTrue(FileSpec.values().length >= 19);
-        assertEquals(7, PackageSuffix.values().length);
-        // ImportFilter and TypeConverter are now utility classes (tested separately)
-    }
-
-    @Test
-    void testPostProcessModels_CompleteEnumFields() {
-        org.openapitools.codegen.model.ModelsMap modelsMap = new org.openapitools.codegen.model.ModelsMap();
-        List<org.openapitools.codegen.model.ModelMap> models = new ArrayList<>();
-
-        org.openapitools.codegen.model.ModelMap modelMap = new org.openapitools.codegen.model.ModelMap();
-        org.openapitools.codegen.CodegenModel model = new org.openapitools.codegen.CodegenModel();
-        model.isEnum = true;
-        model.allowableValues = new HashMap<>();
-        model.allowableValues.put("values", Arrays.asList("ACTIVE", "INACTIVE"));
-
-        // Build enumVars like OpenAPI Generator does
         var enumVars = new ArrayList<Map<String, Object>>();
-        enumVars.add(new HashMap<>(Map.of("name", "ACTIVE", "value", "\"ACTIVE\"")));
-        enumVars.add(new HashMap<>(Map.of("name", "INACTIVE", "value", "\"INACTIVE\"")));
+        for (var v : values) {
+            enumVars.add(new HashMap<>(Map.of("name", v, "value", "\"" + v + "\"")));
+        }
         model.allowableValues.put("enumVars", enumVars);
-
-        // Add multiple vendor extension fields with different types
         model.vendorExtensions = new HashMap<>();
-        model.vendorExtensions.put("x-enum-field-priority", Arrays.asList(1, 2));  // Integer
-        model.vendorExtensions.put("x-enum-field-displayName", Arrays.asList("Active", "Inactive"));  // String
-        model.vendorExtensions.put("x-enum-field-enabled", Arrays.asList(true, false));  // Boolean
-        model.vendorExtensions.put("x-enum-field-weight", Arrays.asList(1.5, 0.5));  // Double
-        model.vendorExtensions.put("x-enum-field-code", Arrays.asList(100L, 200L));  // Long
+        return model;
+    }
 
+    private ModelsMap wrapModel(CodegenModel model) {
+        var modelsMap = new ModelsMap();
+        var modelMap = new ModelMap();
         modelMap.setModel(model);
-        models.add(modelMap);
-        modelsMap.setModels(models);
-
-        org.openapitools.codegen.model.ModelsMap result = codegen.postProcessModels(modelsMap);
-
-        assertNotNull(result);
-        // Verify enum fields were processed
-        assertTrue(model.vendorExtensions.containsKey("enumFields"));
-        assertTrue((Boolean) model.vendorExtensions.get("hasEnumFields"));
-    }
-
-    @Test
-    void testFromParameter_BooleanType() {
-        Parameter param = new Parameter();
-        param.setName("active");
-        param.setIn("query");
-
-        Schema<?> schema = new Schema<>();
-        schema.setType("boolean");
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertNotNull(result);
-        // Boolean parameters should be validated
-        if (result.required) {
-            assertTrue(result.vendorExtensions.containsKey("x-has-validation"));
-        }
-    }
-
-    @Test
-    void testFromParameter_LongType() {
-        Parameter param = new Parameter();
-        param.setName("timestamp");
-
-        Schema<?> schema = new Schema<>();
-        schema.setType("integer");
-        schema.setFormat("int64");
-        schema.setMinimum(new BigDecimal("0"));
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertNotNull(result);
-        assertTrue(result.vendorExtensions.containsKey("x-minimum"));
-    }
-
-    @Test
-    void testFromParameter_DoubleType() {
-        Parameter param = new Parameter();
-        param.setName("amount");
-
-        Schema<?> schema = new Schema<>();
-        schema.setType("number");
-        schema.setFormat("double");
-        schema.setMinimum(new BigDecimal("0.0"));
-        schema.setMaximum(new BigDecimal("1000000.0"));
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertNotNull(result);
-        // Numeric constraints only added if isInteger/isLong/isNumber is true
-        // This is set by parent OpenAPI Generator
-        if (result.isInteger || result.isLong || result.isNumber) {
-            assertTrue(result.vendorExtensions.containsKey("x-minimum"));
-            assertTrue(result.vendorExtensions.containsKey("x-maximum"));
-        }
-    }
-
-    @Test
-    void testFromParameter_EmptyEnumList() {
-        Parameter param = new Parameter();
-        param.setName("status");
-
-        StringSchema schema = new StringSchema();
-        schema.setEnum(Collections.emptyList());
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertNotNull(result);
-        // Empty enum list should not add enum-related extensions
-        assertFalse(result.vendorExtensions.containsKey("x-has-enum-values"));
-    }
-
-    @Test
-    void testFromParameter_SingleEnumValue() {
-        Parameter param = new Parameter();
-        param.setName("constant");
-
-        StringSchema schema = new StringSchema();
-        schema.setEnum(Collections.singletonList("ONLY_VALUE"));
-        param.setSchema(schema);
-
-        CodegenParameter result = codegen.fromParameter(param, new HashSet<>());
-
-        assertTrue(result.vendorExtensions.containsKey("x-has-enum-values"));
-        String enumStr = (String) result.vendorExtensions.get("x-enum-values-string");
-        assertEquals("\"ONLY_VALUE\"", enumStr);
-    }
-
-    @Test
-    void testCleanupModelImports_AllFilteredImports() {
-        org.openapitools.codegen.CodegenModel model = new org.openapitools.codegen.CodegenModel();
-        model.imports = new HashSet<>();
-        model.imports.add("io.swagger.annotations.ApiModel");
-        model.imports.add("io.swagger.annotations.ApiModelProperty");
-        model.imports.add("org.openapitools.jackson.nullable.JsonNullable");
-        model.imports.add("javax.annotation.Schema");
-        model.imports.add("org.openapitools.annotations.ApiModel");
-        model.imports.add("some.other.ApiModel");
-
-        int originalSize = model.imports.size();
-
-        // Call via postProcessModelProperty
-        org.openapitools.codegen.CodegenProperty property = new org.openapitools.codegen.CodegenProperty();
-        codegen.postProcessModelProperty(model, property);
-
-        // All swagger/nullable/schema imports should be removed
-        int removedCount = originalSize - model.imports.size();
-        assertTrue(removedCount > 0);
-        assertFalse(model.imports.stream().anyMatch(imp -> imp.contains("swagger")));
-        assertFalse(model.imports.stream().anyMatch(imp -> imp.contains("JsonNullable")));
-    }
-
-    @Test
-    void testCleanupModelImports_NoImports() {
-        org.openapitools.codegen.CodegenModel model = new org.openapitools.codegen.CodegenModel();
-        model.imports = new HashSet<>();
-
-        org.openapitools.codegen.CodegenProperty property = new org.openapitools.codegen.CodegenProperty();
-        codegen.postProcessModelProperty(model, property);
-
-        assertTrue(model.imports.isEmpty());
-    }
-
-    @Test
-    void testCleanupModelImports_NullImports() {
-        org.openapitools.codegen.CodegenModel model = new org.openapitools.codegen.CodegenModel();
-        model.imports = null;
-
-        org.openapitools.codegen.CodegenProperty property = new org.openapitools.codegen.CodegenProperty();
-
-        // Should not throw NPE
-        assertDoesNotThrow(() -> codegen.postProcessModelProperty(model, property));
+        modelsMap.setModels(List.of(modelMap));
+        return modelsMap;
     }
 }

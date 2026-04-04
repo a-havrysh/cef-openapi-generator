@@ -11,9 +11,13 @@ import java.util.Set;
  */
 public final class ImportFilter {
 
-    /** Keywords that indicate an import should be removed (base Java generator). */
-    private static final Set<String> JAVA_FILTER_KEYWORDS = Set.of(
-        "swagger", "JsonNullable", "oas.annotations",
+    /** Substrings — any import containing these is filtered. */
+    private static final Set<String> JAVA_FILTER_CONTAINS = Set.of(
+        "swagger", "JsonNullable", "oas.annotations"
+    );
+
+    /** Exact simple names — only filter if the import's simple name matches exactly. */
+    private static final Set<String> JAVA_FILTER_EXACT = Set.of(
         "ApiModel", "ApiModelProperty", "Schema"
     );
 
@@ -62,8 +66,9 @@ public final class ImportFilter {
 
     private static boolean isJavaFilteredImport(String importStr) {
         if (importStr == null || importStr.isEmpty()) return true;
-        return JAVA_FILTER_KEYWORDS.stream().anyMatch(kw ->
-            importStr.contains(kw) || importStr.equals(kw));
+        if (JAVA_FILTER_CONTAINS.stream().anyMatch(importStr::contains)) return true;
+        var simpleName = simpleName(importStr);
+        return JAVA_FILTER_EXACT.contains(simpleName);
     }
 
     private static boolean isKotlinFilteredImport(String importStr) {

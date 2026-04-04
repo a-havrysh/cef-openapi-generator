@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+servers:
+  - url: https://local.test
+paths:
+  /api/users:
+    get:
+      operationId: listUsers
+      tags: [User]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+    post:
+      operationId: createUser
+      tags: [User]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /api/users/{userId}:
+    get:
+      operationId: getUser
+      tags: [User]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    delete:
+      operationId: deleteUser
+      tags: [User]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Deleted
+components:
+  schemas:
+    User:
+      type: object
+      required: [id, name, role]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: '#/components/schemas/Role'
+        tags:
+          type: array
+          items:
+            type: string
+    CreateUserRequest:
+      type: object
+      required: [name, role]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/Role'
+    Role:
+      type: string
+      enum: [ADMIN, USER, GUEST]
+      x-enum-field-displayName:
+        - Administrator
+        - Regular User
+        - Guest
+      x-enum-field-level:
+        - 3
+        - 2
+        - 1

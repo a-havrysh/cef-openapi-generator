@@ -1,0 +1,212 @@
+package {{apiPackage}}.util;
+
+import {{apiPackage}}.protocol.MultipartFile;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Parser for multipart/form-data requests.
+ *
+ * <p>Parses multipart requests according to RFC 7578 and extracts:
+ * <ul>
+ *   <li>Form fields (text values)</li>
+ *   <li>File uploads (binary content with metadata)</li>
+ * </ul>
+ *
+ * <p>Thread-safe stateless utility class.
+ *
+ * <p>Auto-generated from OpenAPI specification.
+ */
+public final class MultipartParser {
+
+    private MultipartParser() {
+        // Prevent instantiation
+    }
+
+    /**
+     * Parses multipart/form-data request body.
+     *
+     * @param body request body bytes
+     * @param contentType Content-Type header value (must contain boundary)
+     * @return parsed multipart data
+     * @throws IllegalArgumentException if boundary not found or parsing fails
+     */
+    public static MultipartData parse(byte[] body, String contentType) {
+        if (body == null || contentType == null) {
+            throw new IllegalArgumentException("Body and content type required");
+        }
+
+        String boundary = extractBoundary(contentType);
+        if (boundary == null) {
+            throw new IllegalArgumentException("Boundary not found in Content-Type");
+        }
+
+        return parseByBoundary(body, boundary);
+    }
+
+    private static String extractBoundary(String contentType) {
+        String[] parts = contentType.split(";");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (trimmed.startsWith("boundary=")) {
+                String boundary = trimmed.substring(9);
+                // Remove quotes if present
+                if (boundary.startsWith("\"") && boundary.endsWith("\"")) {
+                    boundary = boundary.substring(1, boundary.length() - 1);
+                }
+                return boundary;
+            }
+        }
+        return null;
+    }
+
+    private static MultipartData parseByBoundary(byte[] body, String boundary) {
+        Map<String, String> fields = new HashMap<>();
+        Map<String, MultipartFile> files = new HashMap<>();
+
+        String boundaryMarker = "--" + boundary;
+        String endMarker = boundaryMarker + "--";
+
+        String bodyStr = new String(body, StandardCharsets.UTF_8);
+        String[] parts = bodyStr.split(boundaryMarker);
+
+        for (String part : parts) {
+            if (part.trim().isEmpty() || part.trim().equals("--")) {
+                continue;
+            }
+
+            int headerEndIndex = part.indexOf("\r\n\r\n");
+            if (headerEndIndex == -1) {
+                headerEndIndex = part.indexOf("\n\n");
+            }
+            if (headerEndIndex == -1) {
+                continue;
+            }
+
+            String headers = part.substring(0, headerEndIndex);
+            String content = part.substring(headerEndIndex + 4).trim();
+
+            // Remove trailing boundary
+            if (content.endsWith("\r\n")) {
+                content = content.substring(0, content.length() - 2);
+            }
+
+            String name = extractName(headers);
+            String filename = extractFilename(headers);
+            String contentType = extractContentType(headers);
+
+            if (name == null) {
+                continue;
+            }
+
+            if (filename != null) {
+                // File upload
+                byte[] fileContent = content.getBytes(StandardCharsets.UTF_8);
+                files.put(name, new MultipartFile(name, filename, contentType, fileContent));
+            } else {
+                // Form field
+                fields.put(name, content);
+            }
+        }
+
+        return new MultipartData(fields, files);
+    }
+
+    private static String extractName(String headers) {
+        String[] lines = headers.split("\r?\n");
+        for (String line : lines) {
+            if (line.toLowerCase().startsWith("content-disposition:")) {
+                return extractParameter(line, "name");
+            }
+        }
+        return null;
+    }
+
+    private static String extractFilename(String headers) {
+        String[] lines = headers.split("\r?\n");
+        for (String line : lines) {
+            if (line.toLowerCase().startsWith("content-disposition:")) {
+                return extractParameter(line, "filename");
+            }
+        }
+        return null;
+    }
+
+    private static String extractContentType(String headers) {
+        String[] lines = headers.split("\r?\n");
+        for (String line : lines) {
+            if (line.toLowerCase().startsWith("content-type:")) {
+                return line.substring(13).trim();
+            }
+        }
+        return "application/octet-stream"; // Default
+    }
+
+    private static String extractParameter(String line, String paramName) {
+        int index = line.indexOf(paramName + "=\"");
+        if (index == -1) {
+            return null;
+        }
+        int start = index + paramName.length() + 2;
+        int end = line.indexOf("\"", start);
+        if (end == -1) {
+            return null;
+        }
+        return line.substring(start, end);
+    }
+
+    /**
+     * Parsed multipart data container.
+     */
+    public static final class MultipartData {
+        private final Map<String, String> fields;
+        private final Map<String, MultipartFile> files;
+
+        public MultipartData(Map<String, String> fields, Map<String, MultipartFile> files) {
+            this.fields = fields;
+            this.files = files;
+        }
+
+        /**
+         * Returns form field value.
+         *
+         * @param name field name
+         * @return field value or null
+         */
+        public String getField(String name) {
+            return fields.get(name);
+        }
+
+        /**
+         * Returns all form fields.
+         *
+         * @return fields map
+         */
+        public Map<String, String> getFields() {
+            return new HashMap<>(fields);
+        }
+
+        /**
+         * Returns uploaded file.
+         *
+         * @param name file field name
+         * @return file or null
+         */
+        public MultipartFile getFile(String name) {
+            return files.get(name);
+        }
+
+        /**
+         * Returns all uploaded files.
+         *
+         * @return files map
+         */
+        public Map<String, MultipartFile> getFiles() {
+            return new HashMap<>(files);
+        }
+    }
+}

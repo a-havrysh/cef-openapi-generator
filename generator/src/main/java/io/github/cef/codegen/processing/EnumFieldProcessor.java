@@ -40,10 +40,10 @@ public final class EnumFieldProcessor {
         var enumVars = (List<Map<String, Object>>) model.allowableValues.get(ENUM_VARS_KEY);
         if (enumVars == null || enumVars.isEmpty()) return;
 
-        var fields = extractFields(model);
-        if (fields.isEmpty()) return;
+        var rawFields = extractFields(model);
+        if (rawFields.isEmpty()) return;
 
-        injectValueFieldIfMissing(fields, enumVars);
+        var fields = withValueField(rawFields, enumVars);
 
         var fieldMeta = buildFieldMetadata(fields);
         model.vendorExtensions.put(ENUM_FIELDS_KEY, fieldMeta);
@@ -67,11 +67,11 @@ public final class EnumFieldProcessor {
     }
 
     /**
-     * Auto-injects a "value" field from enum names if not explicitly defined.
-     * This ensures every enum with vendor extensions has a serializable value property.
+     * Returns fields with a "value" field prepended if not already present.
+     * Does not mutate the input map.
      */
-    private static void injectValueFieldIfMissing(Map<String, List<?>> fields, List<Map<String, Object>> enumVars) {
-        if (fields.containsKey("value")) return;
+    private static Map<String, List<?>> withValueField(Map<String, List<?>> fields, List<Map<String, Object>> enumVars) {
+        if (fields.containsKey("value")) return fields;
 
         var values = enumVars.stream()
             .map(ev -> {
@@ -80,12 +80,10 @@ public final class EnumFieldProcessor {
             })
             .toList();
 
-        // Insert as first field
-        var ordered = new LinkedHashMap<String, List<?>>();
-        ordered.put("value", values);
-        ordered.putAll(fields);
-        fields.clear();
-        fields.putAll(ordered);
+        var result = new LinkedHashMap<String, List<?>>();
+        result.put("value", values);
+        result.putAll(fields);
+        return result;
     }
 
     /**

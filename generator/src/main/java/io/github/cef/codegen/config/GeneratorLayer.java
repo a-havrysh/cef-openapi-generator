@@ -39,16 +39,12 @@ public final class GeneratorLayer {
 
     private static void addCefIntegration(List<SupportingFile> files, String apiPackage, String sourceFolder) {
         var folder = folderPath(apiPackage, CEF, sourceFolder);
-        add(files, "cef", folder, API_CEF_REQUEST_HANDLER, API_CEF_REQUEST_HANDLER_BUILDER, API_RESOURCE_REQUEST_HANDLER);
-        // ApiResponseHandler template lives in protocol/ but output goes to cef/
-        files.add(new SupportingFile("protocol/" + API_RESPONSE_HANDLER.getTemplateName(), folder, API_RESPONSE_HANDLER.getFileName()));
+        add(files, "cef", folder, API_CEF_REQUEST_HANDLER, API_CEF_REQUEST_HANDLER_BUILDER, API_RESOURCE_REQUEST_HANDLER, API_RESPONSE_HANDLER);
     }
 
     private static void addUtility(List<SupportingFile> files, String apiPackage, String sourceFolder) {
         var folder = folderPath(apiPackage, UTIL, sourceFolder);
-        // Templates live in protocol/ but output goes to util/
-        files.add(new SupportingFile("protocol/" + CONTENT_TYPE_RESOLVER.getTemplateName(), folder, CONTENT_TYPE_RESOLVER.getFileName()));
-        files.add(new SupportingFile("protocol/" + MULTIPART_PARSER.getTemplateName(), folder, MULTIPART_PARSER.getFileName()));
+        add(files, "util", folder, CONTENT_TYPE_RESOLVER, MULTIPART_PARSER);
     }
 
     private static void addException(List<SupportingFile> files, String apiPackage, String sourceFolder) {
@@ -67,10 +63,8 @@ public final class GeneratorLayer {
         var folder = folderPath(apiPackage, INTERCEPTOR, sourceFolder);
         add(files, "interceptor", folder,
             REQUEST_INTERCEPTOR, CORS_INTERCEPTOR, VALIDATION_INTERCEPTOR,
-            URL_FILTER_INTERCEPTOR, API_KEY_AUTH_INTERCEPTOR, BEARER_AUTH_INTERCEPTOR, BASIC_AUTH_INTERCEPTOR);
-        // ExceptionHandler/CompositeExceptionHandler templates live in exception/ but output goes to interceptor/
-        files.add(new SupportingFile("exception/" + EXCEPTION_HANDLER.getTemplateName(), folder, EXCEPTION_HANDLER.getFileName()));
-        files.add(new SupportingFile("exception/" + COMPOSITE_EXCEPTION_HANDLER.getTemplateName(), folder, COMPOSITE_EXCEPTION_HANDLER.getFileName()));
+            URL_FILTER_INTERCEPTOR, API_KEY_AUTH_INTERCEPTOR, BEARER_AUTH_INTERCEPTOR, BASIC_AUTH_INTERCEPTOR,
+            EXCEPTION_HANDLER, COMPOSITE_EXCEPTION_HANDLER);
     }
 
     // --- helpers ---

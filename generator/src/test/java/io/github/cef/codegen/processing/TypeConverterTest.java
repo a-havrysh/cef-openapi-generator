@@ -69,6 +69,13 @@ class TypeConverterTest {
         @Test void voidType()     { assertEquals("Unit", TypeConverter.kotlinify("Void")); }
         @Test void nullInput()    { assertNull(TypeConverter.kotlinify(null)); }
         @Test void alreadyKotlin(){ assertEquals("String", TypeConverter.kotlinify("String")); }
+
+        // Word-boundary safety — must NOT corrupt compound type names
+        @Test void objectMapperUntouched()  { assertEquals("ObjectMapper", TypeConverter.kotlinify("ObjectMapper")); }
+        @Test void bigIntegerUntouched()    { assertEquals("BigInteger", TypeConverter.kotlinify("BigInteger")); }
+        @Test void someObjectDtoUntouched() { assertEquals("SomeObjectDto", TypeConverter.kotlinify("SomeObjectDto")); }
+        @Test void integerListConverted()   { assertEquals("List<Int>", TypeConverter.kotlinify("List<Integer>")); }
+        @Test void mapObjectValue()         { assertEquals("Map<String, Any>", TypeConverter.kotlinify("Map<String, Object>")); }
     }
 
     @Nested
