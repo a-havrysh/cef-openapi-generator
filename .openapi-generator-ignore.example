@@ -1,0 +1,20 @@
+# OpenAPI Generator Ignore
+# Lines beginning with a # are comments
+# Patterns follow .gitignore format
+
+# Prevent overwriting custom service implementations
+**/service/*ServiceImpl.java
+**/service/*ServiceImpl.kt
+
+# Keep hand-written models
+**/dto/CustomModel.java
+**/dto/CustomModel.kt
+
+# Skip test/doc generation (better to use generateApiTests=false in Gradle)
+**/*Test.java
+**/*Test.kt
+**/*.md
+
+# Preserve custom interceptors
+**/interceptor/CustomInterceptor.java
+**/interceptor/CustomInterceptor.kt

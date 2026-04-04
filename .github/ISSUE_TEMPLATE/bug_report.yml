@@ -1,0 +1,44 @@
+name: Bug Report
+description: Report a code generation issue
+labels: [bug]
+body:
+  - type: dropdown
+    id: generator
+    attributes:
+      label: Generator
+      options:
+        - cef (Java)
+        - cef-kotlin (Kotlin)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Generator Version
+      placeholder: "3.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: spec
+    attributes:
+      label: OpenAPI Spec (minimal reproducer)
+      description: Minimal YAML that triggers the issue
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Generated Code
+      render: kotlin
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Generated Code
+      render: kotlin
+  - type: textarea
+    id: config
+    attributes:
+      label: Gradle Configuration
+      description: Your generateApi task configuration
+      render: kotlin

@@ -1,0 +1,32 @@
+name: Feature Request
+description: Suggest a new feature or configOption
+labels: [enhancement]
+body:
+  - type: dropdown
+    id: generator
+    attributes:
+      label: Generator
+      options:
+        - cef (Java)
+        - cef-kotlin (Kotlin)
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What feature do you want?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: Show the desired generated code or configuration
+      render: kotlin
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Other approaches you've tried or considered

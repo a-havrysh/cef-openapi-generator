@@ -157,6 +157,88 @@ All [standard OpenAPI Generator Gradle plugin properties](https://github.com/Ope
 `generateApiTests`, `generateModelTests`, `generateApiDocumentation`, `generateModelDocumentation`,
 `skipOperationExample`, `modelNameSuffix`, `modelNamePrefix`, `schemaMappings`, `nameMappings`, etc.
 
+## Maven Configuration
+
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.openapitools</groupId>
+            <artifactId>openapi-generator-maven-plugin</artifactId>
+            <version>7.21.0</version>
+            <executions>
+                <execution>
+                    <goals><goal>generate</goal></goals>
+                    <configuration>
+                        <generatorName>cef-kotlin</generatorName>
+                        <inputSpec>${project.basedir}/openapi.yaml</inputSpec>
+                        <output>${project.build.directory}/generated</output>
+                        <apiPackage>com.example.api</apiPackage>
+                        <modelPackage>com.example.api.dto</modelPackage>
+                        <generateApiTests>false</generateApiTests>
+                        <generateModelTests>false</generateModelTests>
+                        <generateApiDocumentation>false</generateApiDocumentation>
+                        <generateModelDocumentation>false</generateModelDocumentation>
+                        <configOptions>
+                            <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                            <serializableModel>true</serializableModel>
+                        </configOptions>
+                    </configuration>
+                </execution>
+            </executions>
+            <dependencies>
+                <dependency>
+                    <groupId>io.github.cef</groupId>
+                    <artifactId>generator</artifactId>
+                    <version>3.1.0</version>
+                </dependency>
+            </dependencies>
+        </plugin>
+    </plugins>
+</build>
+```
+
+## CLI Usage
+
+```bash
+# List all available options for the generator
+java -cp generator.jar org.openapitools.codegen.OpenAPIGenerator config-help -g cef-kotlin
+
+# Generate code
+java -cp generator.jar org.openapitools.codegen.OpenAPIGenerator generate \
+  -g cef-kotlin \
+  -i openapi.yaml \
+  -o ./generated \
+  --api-package com.example.api \
+  --model-package com.example.api.dto \
+  --additional-properties hideGenerationTimestamp=true,serializableModel=true
+
+# Or use the openapi-generator-cli with custom JAR
+openapi-generator-cli generate \
+  --custom-generator=generator-3.1.0.jar \
+  -g cef-kotlin \
+  -i openapi.yaml \
+  -o ./generated
+```
+
+## File Ignore
+
+Place `.openapi-generator-ignore` in the output directory to prevent overwriting files:
+
+```gitignore
+# Keep custom service implementations
+**/service/*ServiceImpl.kt
+
+# Keep hand-written models
+**/dto/CustomModel.kt
+
+# Skip test/doc generation
+**/*Test.kt
+**/*.md
+```
+
+See [.openapi-generator-ignore.example](.openapi-generator-ignore.example) for a full template.
+
 ## Generated Code
 
 ### Architecture
@@ -317,6 +399,41 @@ io.github.cef.codegen/
     ├── ParameterConstraintExtractor.java    — OpenAPI constraints → vendor extensions
     └── TypeConverter.java                   — Type detection, literal formatting, Java→Kotlin
 ```
+
+## Troubleshooting
+
+**Generator not found: `cef-kotlin`**
+```
+Could not find io.github.cef:generator:3.1.0
+```
+→ Run `./gradlew :generator:publishToMavenLocal` in the generator project, and add `mavenLocal()` to your `buildscript.repositories`.
+
+**`ClassNotFoundException: CefKotlinCodegen`**
+→ The generator JAR must be on the classpath. In Gradle, add it as `classpath` dependency in `buildscript.dependencies`, not as regular `implementation`.
+
+**Generated code has `java.util.List` instead of Kotlin `List`**
+→ Make sure you use `generatorName = "cef-kotlin"` (not `"cef"`). The Java generator intentionally produces Java types.
+
+**Enum fields not generated (no `displayName`, `description`)**
+→ Add `x-enum-field-*` vendor extensions to your OpenAPI spec. The `value` field is auto-injected.
+
+**`$schema` field causes compilation error**
+→ Fixed in v3.1.0. The generator escapes `$` in property names for Kotlin string literals and wraps identifiers in backticks.
+
+**Models have `Object` type instead of `Any`**
+→ Update to v3.1.0+. Earlier versions had a word-boundary bug that corrupted compound type names.
+
+**How do I see all available options?**
+```bash
+# List all configOptions for the generator
+java -cp generator.jar org.openapitools.codegen.OpenAPIGenerator config-help -g cef-kotlin --full-details
+```
+
+**How do I prevent regeneration from overwriting my files?**
+→ Place a `.openapi-generator-ignore` file in the output directory. See [.openapi-generator-ignore.example](.openapi-generator-ignore.example).
+
+**Can I use a custom template for one file?**
+→ Yes. Set `templateDir` in your Gradle config to a directory with your overrides. Only files present in your directory will override; others use the embedded templates.
 
 ## Testing
 
