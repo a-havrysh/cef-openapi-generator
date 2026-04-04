@@ -67,10 +67,11 @@ class KotlinGenerationTest {
             val content = file.readText()
 
             assertTrue(content.contains("class ApiRequest"), "ApiRequest should be a class")
-            assertTrue(content.contains("fun getMethod()"), "ApiRequest should have getMethod")
-            assertTrue(content.contains("fun getPath()"), "ApiRequest should have getPath")
-            assertTrue(content.contains("fun getHeader("), "ApiRequest should have getHeader")
-            assertTrue(content.contains("fun getQueryParam("), "ApiRequest should have getQueryParam")
+            assertTrue(content.contains("val method:"), "ApiRequest should have method property")
+            assertTrue(content.contains("val path:"), "ApiRequest should have path property")
+            assertTrue(content.contains("fun header("), "ApiRequest should have header function")
+            assertTrue(content.contains("fun queryParam("), "ApiRequest should have queryParam function")
+            assertTrue(content.contains("by lazy"), "ApiRequest should use lazy initialization")
         }
 
         @Test
@@ -229,9 +230,9 @@ class KotlinGenerationTest {
             val file = getGeneratedFile("util/MultipartParser.kt")
             val content = file.readText()
 
-            assertTrue(content.contains("class MultipartParser"), "MultipartParser should be a class")
-            assertTrue(content.contains("RequestInterceptor"), "MultipartParser should implement RequestInterceptor")
-            assertTrue(content.contains("beforeHandle"), "MultipartParser should have beforeHandle method")
+            assertTrue(content.contains("object MultipartParser"), "MultipartParser should be an object")
+            assertTrue(content.contains("fun parse"), "MultipartParser should have parse function")
+            assertTrue(content.contains("MultipartData"), "MultipartParser should have MultipartData class")
         }
 
         @Test

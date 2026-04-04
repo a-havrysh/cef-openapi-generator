@@ -327,9 +327,9 @@ class KotlinDTOComprehensiveTest {
                 "1", "Title", "Desc", TaskStatus.PENDING, TaskPriority.LOW, "user", tags, "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z", "2024-01-31T00:00:00Z"
             )
 
-            assertEquals(3, task.tags.size)
-            assertTrue(task.tags.contains("tag1"))
-            assertTrue(task.tags.contains("tag2"))
+            assertEquals(3, task.tags?.size)
+            assertTrue(task.tags?.contains("tag1") == true)
+            assertTrue(task.tags?.contains("tag2") == true)
         }
 
         @Test
