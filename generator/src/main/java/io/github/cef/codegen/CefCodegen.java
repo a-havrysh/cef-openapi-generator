@@ -11,6 +11,7 @@ import org.openapitools.codegen.CodegenConstants;
 import org.openapitools.codegen.CodegenModel;
 import org.openapitools.codegen.CodegenParameter;
 import org.openapitools.codegen.CodegenProperty;
+import org.openapitools.codegen.SupportingFile;
 import org.openapitools.codegen.languages.AbstractJavaCodegen;
 import org.openapitools.codegen.model.ModelMap;
 import org.openapitools.codegen.model.ModelsMap;
@@ -22,32 +23,41 @@ import java.util.Set;
 /**
  * CEF (Chromium Embedded Framework) code generator for OpenAPI specifications.
  *
- * Generates a layered API infrastructure for JetBrains JCEF plugins:
- * - Service interfaces (two-level: HTTP wrapper + business method)
- * - Protocol layer (ApiRequest, ApiResponse, HttpMethod)
- * - Routing layer (Trie-based RouteTree)
- * - CEF integration (request handlers, response serialization)
- * - Interceptors (CORS, auth, validation)
- * - Exception hierarchy (400, 404, 500, 501)
- *
- * Supported configOptions (in addition to inherited AbstractJavaCodegen options):
- * - modelSuffix / modelPrefix — naming customization
- * - hideGenerationTimestamp — default true
- * - serializableModel — adds Serializable to models
- * - containerDefaultToNull — null instead of empty collections
- * - generateConstructorWithAllArgs — all-args constructor (Java)
- * - generateBuilders — Builder pattern (Java)
- * - additionalModelTypeAnnotations — extra class-level annotations
- * - additionalEnumTypeAnnotations — extra enum-level annotations
- * - dateLibrary — java8 (default), java8-localdatetime
- *
  * @see CefKotlinCodegen
  */
 public class CefCodegen extends AbstractJavaCodegen {
 
+    // Generator identity
     private static final String GENERATOR_NAME = "cef";
+    private static final String GENERATOR_HELP = "CEF generator for BPMN Editor";
     private static final String TEMPLATE_DIR = "cef-java";
     private static final String SERVICE_SUBDIR = "service";
+
+    // File extensions
+    static final String JAVA_EXT = ".java";
+    static final String KOTLIN_EXT = ".kt";
+    static final String MARKDOWN_EXT = ".md";
+
+    // Template paths
+    static final String MODEL_TEMPLATE = "model/model.mustache";
+    static final String MODEL_DOC_TEMPLATE = "model/model_doc.mustache";
+    static final String MODEL_TEST_TEMPLATE = "model/model_test.mustache";
+    static final String API_DOC_TEMPLATE = "api/api_doc.mustache";
+    static final String API_TEST_TEMPLATE = "api/api_test.mustache";
+    static final String API_TEMPLATE_PREFIX = "api/";
+    static final String README_TEMPLATE = "README.mustache";
+    static final String README_OUTPUT = "README.md";
+
+    // Config option keys
+    static final String OPT_MODEL_SUFFIX = "modelSuffix";
+    static final String OPT_MODEL_PREFIX = "modelPrefix";
+    static final String OPT_CONTAINER_DEFAULT_TO_NULL = "containerDefaultToNull";
+    static final String OPT_GENERATE_CONSTRUCTOR = "generateConstructorWithAllArgs";
+    static final String OPT_GENERATE_BUILDERS = "generateBuilders";
+
+    // Bundle keys for Mustache templates
+    static final String BUNDLE_SERVER_URLS = "serverUrls";
+    static final String BUNDLE_HAS_SERVERS = "hasServers";
 
     public CefCodegen() {
         super();
@@ -58,9 +68,9 @@ public class CefCodegen extends AbstractJavaCodegen {
         setOpenApiNullable(false);
         setUseBeanValidation(false);
 
-        cliOptions.add(org.openapitools.codegen.CliOption.newString("modelSuffix",
+        cliOptions.add(org.openapitools.codegen.CliOption.newString(OPT_MODEL_SUFFIX,
             "Suffix to append to all model class names (e.g., 'Dto' -> TaskDto)"));
-        cliOptions.add(org.openapitools.codegen.CliOption.newString("modelPrefix",
+        cliOptions.add(org.openapitools.codegen.CliOption.newString(OPT_MODEL_PREFIX,
             "Prefix to prepend to all model class names"));
     }
 
@@ -71,7 +81,7 @@ public class CefCodegen extends AbstractJavaCodegen {
 
     @Override
     public String getHelp() {
-        return "CEF generator for BPMN Editor";
+        return GENERATOR_HELP;
     }
 
     // ── Template configuration ──────────────────────────────────────────
@@ -83,36 +93,23 @@ public class CefCodegen extends AbstractJavaCodegen {
         applyGenerationOptions();
         configureTemplates();
         GeneratorLayer.registerAll(supportingFiles, apiPackage, sourceFolder);
-
-        // README for generated code
-        supportingFiles.add(new org.openapitools.codegen.SupportingFile("README.mustache", "", "README.md"));
-
+        supportingFiles.add(new SupportingFile(README_TEMPLATE, "", README_OUTPUT));
     }
 
     private void applyModelNamingOptions() {
-        if (additionalProperties.containsKey("modelSuffix")) {
-            setModelNameSuffix(additionalProperties.get("modelSuffix").toString());
+        if (additionalProperties.containsKey(OPT_MODEL_SUFFIX)) {
+            setModelNameSuffix(additionalProperties.get(OPT_MODEL_SUFFIX).toString());
         }
-        if (additionalProperties.containsKey("modelPrefix")) {
-            setModelNamePrefix(additionalProperties.get("modelPrefix").toString());
+        if (additionalProperties.containsKey(OPT_MODEL_PREFIX)) {
+            setModelNamePrefix(additionalProperties.get(OPT_MODEL_PREFIX).toString());
         }
     }
 
-    /**
-     * Propagates configOptions into additionalProperties so they are accessible
-     * in Mustache templates. AbstractJavaCodegen handles most of these internally,
-     * but we make them explicitly available for our custom templates.
-     */
     private void applyGenerationOptions() {
-        // These are already processed by AbstractJavaCodegen.processOpts() via
-        // convertPropertyToBooleanAndWriteBack(), but we ensure template visibility
-        propagateBooleanProperty(CodegenConstants.SERIALIZABLE_MODEL, "serializableModel");
-        propagateBooleanProperty("containerDefaultToNull", "containerDefaultToNull");
-        propagateBooleanProperty("generateConstructorWithAllArgs", "generateConstructorWithAllArgs");
-        propagateBooleanProperty("generateBuilders", "generateBuilders");
-
-        // String annotations — already parsed by AbstractJavaCodegen into lists,
-        // available via additionalModelTypeAnnotations / additionalEnumTypeAnnotations
+        propagateBooleanProperty(CodegenConstants.SERIALIZABLE_MODEL, CodegenConstants.SERIALIZABLE_MODEL);
+        propagateBooleanProperty(OPT_CONTAINER_DEFAULT_TO_NULL, OPT_CONTAINER_DEFAULT_TO_NULL);
+        propagateBooleanProperty(OPT_GENERATE_CONSTRUCTOR, OPT_GENERATE_CONSTRUCTOR);
+        propagateBooleanProperty(OPT_GENERATE_BUILDERS, OPT_GENERATE_BUILDERS);
     }
 
     private void propagateBooleanProperty(String key, String templateKey) {
@@ -121,25 +118,25 @@ public class CefCodegen extends AbstractJavaCodegen {
         }
     }
 
-    private void configureTemplates() {
+    protected void configureTemplates() {
         apiTemplateFiles.clear();
-        apiTemplateFiles.put("api/" + FileSpec.API_SERVICE.getTemplateName(), FileSpec.API_SERVICE.getFileName());
-        apiTemplateFiles.put("api/" + FileSpec.MOCK_SERVICE.getTemplateName(), FileSpec.MOCK_SERVICE.getFileName());
+        apiTemplateFiles.put(API_TEMPLATE_PREFIX + FileSpec.API_SERVICE.getTemplateName(), FileSpec.API_SERVICE.getFileName());
+        apiTemplateFiles.put(API_TEMPLATE_PREFIX + FileSpec.MOCK_SERVICE.getTemplateName(), FileSpec.MOCK_SERVICE.getFileName());
 
         modelTemplateFiles.clear();
-        modelTemplateFiles.put("model/model.mustache", ".java");
+        modelTemplateFiles.put(MODEL_TEMPLATE, JAVA_EXT);
 
         modelDocTemplateFiles.clear();
-        modelDocTemplateFiles.put("model/model_doc.mustache", ".md");
+        modelDocTemplateFiles.put(MODEL_DOC_TEMPLATE, MARKDOWN_EXT);
 
         modelTestTemplateFiles.clear();
-        modelTestTemplateFiles.put("model/model_test.mustache", ".java");
+        modelTestTemplateFiles.put(MODEL_TEST_TEMPLATE, JAVA_EXT);
 
         apiDocTemplateFiles.clear();
-        apiDocTemplateFiles.put("api/api_doc.mustache", ".md");
+        apiDocTemplateFiles.put(API_DOC_TEMPLATE, MARKDOWN_EXT);
 
         apiTestTemplateFiles.clear();
-        apiTestTemplateFiles.put("api/api_test.mustache", ".java");
+        apiTestTemplateFiles.put(API_TEST_TEMPLATE, JAVA_EXT);
     }
 
     @Override
@@ -194,8 +191,8 @@ public class CefCodegen extends AbstractJavaCodegen {
                 .toList();
 
             if (!urls.isEmpty()) {
-                result.put("serverUrls", urls);
-                result.put("hasServers", true);
+                result.put(BUNDLE_SERVER_URLS, urls);
+                result.put(BUNDLE_HAS_SERVERS, true);
             }
         }
 

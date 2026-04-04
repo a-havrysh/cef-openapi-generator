@@ -20,4 +20,9 @@ public enum PackageSuffix {
     INTERCEPTOR(".interceptor");
 
     private final String value;
+
+    /** Template directory name (suffix without leading dot). */
+    public String templateDir() {
+        return value.substring(1);
+    }
 }
