@@ -87,6 +87,7 @@ public final class ApiRequest {
     private String bodyString;
     private Map<String, String> queryParams;
     private Map<String, String> pathVariables;
+    private String routePattern;
 
     public ApiRequest(CefRequest cefRequest, CefBrowser cefBrowser, CefFrame cefFrame) {
         this.cefRequest = cefRequest;
@@ -148,6 +149,18 @@ public final class ApiRequest {
         }
     }
 
+    /**
+     * Deserialize the request body, throwing a clean 400 if no body was sent.
+     * Use this instead of {@link #getBody(Class)} for operations whose body is required.
+     */
+    public <T> T requireBody(Class<T> clazz) {
+        T body = getBody(clazz);
+        if (body == null) {
+            throw ApiException.badRequest("Request body is required");
+        }
+        return body;
+    }
+
     public String getPathVariable(String name) {
         return pathVariables.get(name);
     }
@@ -170,6 +183,22 @@ public final class ApiRequest {
      */
     public void setPathVariables(Map<String, String> pathVariables) {
         this.pathVariables = pathVariables != null ? pathVariables : Collections.emptyMap();
+    }
+
+    /**
+     * Get the route pattern that matched this request's path (e.g., "/api/users/{id}"),
+     * as registered via {@code ApiCefRequestHandlerBuilder}. Null if this request wasn't
+     * routed through a {@code RouteTree} match (e.g. constructed directly in a test).
+     */
+    public String getRoutePattern() {
+        return routePattern;
+    }
+
+    /**
+     * Sets the route pattern that matched this request. Called by handler during request processing.
+     */
+    public void setRoutePattern(String routePattern) {
+        this.routePattern = routePattern;
     }
 
     /**

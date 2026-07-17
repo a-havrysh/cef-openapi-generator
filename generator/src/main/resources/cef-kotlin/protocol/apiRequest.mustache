@@ -54,6 +54,14 @@ class ApiRequest(
     var pathVariables: Map<String, String> = emptyMap()
         internal set
 
+    /**
+     * The route pattern that matched this request's path (e.g., "/api/users/{id}"),
+     * as registered via [ApiCefRequestHandlerBuilder]. Null if this request wasn't
+     * routed through a [RouteTree] match (e.g. constructed directly in a test).
+     */
+    var routePattern: String? = null
+        internal set
+
     /** Deserialize request body to the specified type. */
     inline fun <reified T> body(): T? = body(T::class.java)
 
@@ -84,6 +92,7 @@ class ApiRequest(
     fun getHeader(name: String): String? = header(name)
     fun <T> getBody(clazz: Class<T>): T? = body(clazz)
     fun setPathVariables(vars: Map<String, String>) { pathVariables = vars }
+    fun setRoutePattern(pattern: String) { routePattern = pattern }
 
     private fun extractBodyString(): String? {
         val postData = cefRequest.postData ?: return null

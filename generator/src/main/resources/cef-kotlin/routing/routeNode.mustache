@@ -66,6 +66,12 @@ internal class RouteNode(
     private val handlers: MutableMap<HttpMethod, (ApiRequest) -> ApiResponse<*>> = mutableMapOf()
 
     /**
+     * The original route pattern registered for each method at this terminal node
+     * (e.g., "/api/users/{id}"). Only populated for terminal nodes.
+     */
+    private val handlerPatterns: MutableMap<HttpMethod, String> = mutableMapOf()
+
+    /**
      * Add a route starting from this node.
      * Recursively navigates/creates the Trie structure.
      *
@@ -75,7 +81,7 @@ internal class RouteNode(
      */
     fun addRoute(pattern: String, method: HttpMethod, handler: (ApiRequest) -> ApiResponse<*>) {
         val segments = pattern.split("/").filter { it.isNotEmpty() }
-        addRouteRecursive(segments, 0, method, handler)
+        addRouteRecursive(pattern, segments, 0, method, handler)
     }
 
     /**
@@ -89,11 +95,24 @@ internal class RouteNode(
     fun match(path: String, method: HttpMethod): RouteTree.MatchResult? {
         val segments = path.split("/").filter { it.isNotEmpty() }
         val pathVariables = mutableMapOf<String, String>()
-        val handler = matchRecursive(segments, 0, method, pathVariables) ?: return null
-        return RouteTree.MatchResult(handler, pathVariables)
+        val matched = matchRecursive(segments, 0, method, pathVariables) ?: return null
+        return RouteTree.MatchResult(matched.handler, pathVariables, matched.pattern)
+    }
+
+    /**
+     * Check whether some route pattern structurally matches this path, regardless of method.
+     * Used to distinguish "no such path" (404) from "path exists, wrong method" (405).
+     *
+     * @param path the request path (e.g., "/api/users/123")
+     * @return true if a route pattern matches the path shape for at least one HTTP method
+     */
+    fun hasPathMatch(path: String): Boolean {
+        val segments = path.split("/").filter { it.isNotEmpty() }
+        return hasPathMatchRecursive(segments, 0)
     }
 
     private fun addRouteRecursive(
+        pattern: String,
         segments: List<String>,
         index: Int,
         method: HttpMethod,
@@ -101,6 +120,7 @@ internal class RouteNode(
     ) {
         if (index >= segments.size) {
             handlers[method] = handler
+            handlerPatterns[method] = pattern
             return
         }
 
@@ -112,39 +132,73 @@ internal class RouteNode(
             if (templateChild == null) {
                 templateChild = RouteNode(segment, true, variableName)
             }
-            templateChild!!.addRouteRecursive(segments, index + 1, method, handler)
+            templateChild!!.addRouteRecursive(pattern, segments, index + 1, method, handler)
         } else {
             val child = literalChildren.computeIfAbsent(segment) { RouteNode(segment, false) }
-            child.addRouteRecursive(segments, index + 1, method, handler)
+            child.addRouteRecursive(pattern, segments, index + 1, method, handler)
         }
     }
+
+    private data class MatchedHandler(
+        val handler: (ApiRequest) -> ApiResponse<*>,
+        val pattern: String
+    )
 
     private fun matchRecursive(
         segments: List<String>,
         index: Int,
         method: HttpMethod,
         pathVariables: MutableMap<String, String>
-    ): ((ApiRequest) -> ApiResponse<*>)? {
+    ): MatchedHandler? {
         if (index >= segments.size) {
-            return handlers[method]
+            val handler = handlers[method] ?: return null
+            return MatchedHandler(handler, handlerPatterns.getValue(method))
         }
 
         val segment = segments[index]
 
-        // Try literal children first (they have priority)
+        // Try literal children first (they have priority) — but fall through to the
+        // template child if the literal branch is a structural dead end (no backtracking
+        // would otherwise mean a literal/template sibling collision breaks the template route).
         literalChildren[segment]?.let { child ->
-            return child.matchRecursive(segments, index + 1, method, pathVariables)
+            child.matchRecursive(segments, index + 1, method, pathVariables)?.let { return it }
         }
 
-        // Try template child
         templateChild?.let { child ->
-            if (child.variableName != null) {
-                pathVariables[child.variableName] = segment
+            val variableName = child.variableName
+            val previousValue = if (variableName != null) pathVariables[variableName] else null
+            if (variableName != null) pathVariables[variableName] = segment
+
+            val result = child.matchRecursive(segments, index + 1, method, pathVariables)
+            if (result != null) return result
+
+            // Backtrack: this template branch didn't pan out, undo its speculative assignment
+            // so a failed deeper match doesn't pollute the variables of a sibling attempt.
+            if (variableName != null) {
+                if (previousValue != null) pathVariables[variableName] = previousValue
+                else pathVariables.remove(variableName)
             }
-            return child.matchRecursive(segments, index + 1, method, pathVariables)
         }
 
         return null
+    }
+
+    private fun hasPathMatchRecursive(segments: List<String>, index: Int): Boolean {
+        if (index >= segments.size) {
+            return handlers.isNotEmpty()
+        }
+
+        val segment = segments[index]
+
+        literalChildren[segment]?.let { child ->
+            if (child.hasPathMatchRecursive(segments, index + 1)) return true
+        }
+
+        templateChild?.let { child ->
+            if (child.hasPathMatchRecursive(segments, index + 1)) return true
+        }
+
+        return false
     }
 
     override fun toString(): String {

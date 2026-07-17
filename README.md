@@ -51,7 +51,7 @@ repositories {
 ```kotlin
 buildscript {
     repositories { mavenLocal() }
-    dependencies { classpath("io.github.cef:generator:3.1.1") }
+    dependencies { classpath("io.github.cef:generator:3.1.2") }
 }
 
 plugins {
@@ -448,7 +448,7 @@ See [TESTING.md](docs/TESTING.md) for details.
 
 ## Version
 
-**Current: 3.1.1** — [CHANGELOG.md](CHANGELOG.md)
+**Current: 3.1.2** — [CHANGELOG.md](CHANGELOG.md)
 
 Upgrading? See [MIGRATION.md](docs/MIGRATION.md).
 

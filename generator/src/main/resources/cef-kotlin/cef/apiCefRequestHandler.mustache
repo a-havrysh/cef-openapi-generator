@@ -47,9 +47,9 @@ class ApiCefRequestHandler internal constructor(
         }
 
         val path = extractPath(url)
-        val method = HttpMethod.valueOf(request.method)
+        val method = runCatching { HttpMethod.fromString(request.method) }.getOrNull() ?: return null
 
-        return if (routeTree.match(path, method) != null) apiHandler else null
+        return if (routeTree.match(path, method) != null || routeTree.hasPath(path)) apiHandler else null
     }
 
     private fun extractPath(url: String): String {

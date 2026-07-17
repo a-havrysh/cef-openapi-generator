@@ -3,6 +3,8 @@ package {{apiPackage}}.interceptor;
 import {{apiPackage}}.protocol.ApiResponse;
 import {{apiPackage}}.exception.ApiException;
 import org.cef.network.CefRequest;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Handler for converting exceptions to HTTP responses.
@@ -72,11 +74,14 @@ public interface ExceptionHandler {
      * Default exception handler implementation.
      * Converts ApiException to appropriate HTTP status, others to 500.
      */
+    Logger LOG = Logger.getLogger(ExceptionHandler.class.getName());
+
     ExceptionHandler DEFAULT = (exception, request) -> {
         if (exception instanceof ApiException) {
             ApiException apiException = (ApiException) exception;
             return ApiResponse.status(apiException.getStatusCode(), apiException.getMessage());
         }
-        return ApiResponse.internalServerError("Internal server error: " + exception.getMessage());
+        LOG.log(Level.SEVERE, "Unhandled exception in API request", exception);
+        return ApiResponse.internalServerError("Internal server error");
     };
 }

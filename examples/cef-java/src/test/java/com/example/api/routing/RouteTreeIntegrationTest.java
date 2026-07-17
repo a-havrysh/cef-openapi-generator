@@ -666,4 +666,68 @@ class RouteTreeIntegrationTest {
             assertThat(result).isNull();
         }
     }
+
+    @Nested
+    @DisplayName("Backtracking and Method-Mismatch Detection")
+    class BacktrackingAndMethodMismatch {
+
+        @Test
+        @DisplayName("Should backtrack from a literal dead end to the sibling template branch")
+        void testBacktrackFromLiteralDeadEnd() {
+            Function<ApiRequest, ApiResponse<?>> templateHandler = req -> ApiResponse.ok("template");
+            Function<ApiRequest, ApiResponse<?>> literalHandler = req -> ApiResponse.ok("literal");
+
+            // "users" is a registered literal segment (via the second route below), but it has
+            // no "edit" child — only the sibling {id} template branch does. Without backtracking,
+            // the literal "users" child is tried first, dead-ends at "edit", and the whole match
+            // fails instead of falling back to the template branch.
+            routeTree.addRoute("/api/{id}/edit", HttpMethod.GET, templateHandler);
+            routeTree.addRoute("/api/users/view", HttpMethod.GET, literalHandler);
+
+            RouteTree.MatchResult result = routeTree.match("/api/users/edit", HttpMethod.GET);
+
+            assertThat(result).isNotNull();
+            assertThat(result.handler()).isEqualTo(templateHandler);
+            assertThat(result.pathVariables()).containsEntry("id", "users");
+        }
+
+        @Test
+        @DisplayName("hasPath should be true for a registered path even under the wrong method")
+        void testHasPathTrueForWrongMethod() {
+            routeTree.addRoute("/api/tasks/{id}", HttpMethod.GET, req -> ApiResponse.ok("ok"));
+
+            assertThat(routeTree.hasPath("/api/tasks/123")).isTrue();
+            assertThat(routeTree.match("/api/tasks/123", HttpMethod.DELETE)).isNull();
+        }
+
+        @Test
+        @DisplayName("hasPath should be false for a path with no registered route at all")
+        void testHasPathFalseForUnknownPath() {
+            routeTree.addRoute("/api/tasks/{id}", HttpMethod.GET, req -> ApiResponse.ok("ok"));
+
+            assertThat(routeTree.hasPath("/api/unknown/123")).isFalse();
+        }
+
+        @Test
+        @DisplayName("MatchResult should expose the original route pattern, not the resolved path")
+        void testMatchResultExposesPattern() {
+            routeTree.addRoute("/api/users/{id}", HttpMethod.GET, req -> ApiResponse.ok("ok"));
+
+            RouteTree.MatchResult result = routeTree.match("/api/users/123", HttpMethod.GET);
+
+            assertThat(result).isNotNull();
+            assertThat(result.pattern()).isEqualTo("/api/users/{id}");
+        }
+
+        @Test
+        @DisplayName("Exact routes should expose the path itself as the pattern")
+        void testExactRoutePattern() {
+            routeTree.addExactRoute("/api/health", HttpMethod.GET, req -> ApiResponse.ok("ok"));
+
+            RouteTree.MatchResult result = routeTree.match("/api/health", HttpMethod.GET);
+
+            assertThat(result).isNotNull();
+            assertThat(result.pattern()).isEqualTo("/api/health");
+        }
+    }
 }

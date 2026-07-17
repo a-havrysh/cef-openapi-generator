@@ -74,6 +74,12 @@ final class RouteNode {
     private final Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> handlers = new HashMap<>();
 
     /**
+     * The original route pattern registered for each method at this terminal node
+     * (e.g., "/api/users/{id}"). Only populated for terminal nodes.
+     */
+    private final Map<HttpMethod, String> handlerPatterns = new HashMap<>();
+
+    /**
      * Create a literal node representing a fixed path segment.
      *
      * @param segment the literal segment string (e.g., "api", "users")
@@ -158,9 +164,11 @@ final class RouteNode {
      *
      * @param method  HTTP method (GET, POST, etc.)
      * @param handler request handler function
+     * @param pattern the original route pattern this handler was registered under
      */
-    void addHandler(HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler) {
+    void addHandler(HttpMethod method, Function<ApiRequest, ApiResponse<?>> handler, String pattern) {
         handlers.put(method, handler);
+        handlerPatterns.put(method, pattern);
     }
 
     /**
@@ -171,5 +179,24 @@ final class RouteNode {
      */
     Function<ApiRequest, ApiResponse<?>> getHandler(HttpMethod method) {
         return handlers.get(method);
+    }
+
+    /**
+     * Get the route pattern registered for a specific HTTP method.
+     *
+     * @param method HTTP method to look up
+     * @return the original route pattern, or null if no handler exists for this method
+     */
+    String getHandlerPattern(HttpMethod method) {
+        return handlerPatterns.get(method);
+    }
+
+    /**
+     * Check whether this node is terminal for any HTTP method.
+     *
+     * @return true if at least one handler is registered at this node
+     */
+    boolean hasAnyHandler() {
+        return !handlers.isEmpty();
     }
 }

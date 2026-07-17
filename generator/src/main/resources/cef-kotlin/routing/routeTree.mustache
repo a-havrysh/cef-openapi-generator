@@ -57,45 +57,69 @@ class RouteTree {
     }
 
     fun match(path: String, method: HttpMethod): MatchResult? {
-        val cacheKey = "$method:$path"
-
-        cache[cacheKey]?.let { return MatchResult(it.handler, it.pathVariables) }
-
-        // Exact routes — O(1)
-        exactRoutes[path]?.get(method)?.let { return MatchResult(it, emptyMap()) }
-
-        // Pattern routes — Trie traversal
-        root.match(path, method)?.let { result ->
-            cache[cacheKey] = CacheEntry(result.handler, result.pathVariables)
-            return result
-        }
+        matchStrict(path, method)?.let { return it }
 
         // Prefix routes
         prefixRoutes.entries.firstOrNull { (prefix, methods) ->
             path.startsWith(prefix) && method in methods
-        }?.let { (_, methods) -> return MatchResult(methods.getValue(method), emptyMap()) }
+        }?.let { (prefix, methods) -> return MatchResult(methods.getValue(method), emptyMap(), prefix) }
 
         // Contains routes
         containsRoutes.entries.firstOrNull { (sub, methods) ->
             sub in path && method in methods
-        }?.let { (_, methods) -> return MatchResult(methods.getValue(method), emptyMap()) }
+        }?.let { (sub, methods) -> return MatchResult(methods.getValue(method), emptyMap(), sub) }
 
         // Fallback
-        fallbackHandlers[method]?.let { return MatchResult(it, emptyMap()) }
+        fallbackHandlers[method]?.let { return MatchResult(it, emptyMap(), path) }
 
         return null
+    }
+
+    /**
+     * Matches only exact and pattern (trie) routes — never prefix/contains/fallback catch-alls.
+     * Used to tell a genuine method-mismatch on a known API path (which should 405) apart from
+     * a path that only a method-agnostic fallback (e.g. static-resource serving) would answer.
+     */
+    fun matchStrict(path: String, method: HttpMethod): MatchResult? {
+        val cacheKey = "$method:$path"
+
+        cache[cacheKey]?.let { return MatchResult(it.handler, it.pathVariables, it.pattern) }
+
+        // Exact routes — O(1)
+        exactRoutes[path]?.get(method)?.let { return MatchResult(it, emptyMap(), path) }
+
+        // Pattern routes — Trie traversal
+        root.match(path, method)?.let { result ->
+            cache[cacheKey] = CacheEntry(result.handler, result.pathVariables, result.pattern)
+            return result
+        }
+
+        return null
+    }
+
+    /**
+     * Checks whether some registered route structurally matches this path for ANY method —
+     * i.e. distinguishes "no such path at all" from "path exists, wrong HTTP method".
+     * Only considers exact and pattern (trie) routes: prefix/contains/fallback routes are
+     * intentionally method-agnostic catch-alls and never produce a 405 by themselves.
+     */
+    fun hasPath(path: String): Boolean {
+        if (exactRoutes[path]?.isNotEmpty() == true) return true
+        return root.hasPathMatch(path)
     }
 
     fun clearCache() = cache.clear()
 
     data class MatchResult(
         val handler: RouteHandler,
-        val pathVariables: Map<String, String>
+        val pathVariables: Map<String, String>,
+        val pattern: String
     )
 
     private data class CacheEntry(
         val handler: RouteHandler,
-        val pathVariables: Map<String, String>
+        val pathVariables: Map<String, String>,
+        val pattern: String
     )
 
     /** Simple thread-safe LRU cache backed by LinkedHashMap. */

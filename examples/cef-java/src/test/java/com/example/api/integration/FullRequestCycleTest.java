@@ -9,14 +9,21 @@ import com.example.api.mock.MockCefFactory;
 import com.intellij.openapi.project.Project;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
+import org.cef.handler.CefResourceHandler;
 import org.cef.handler.CefResourceRequestHandler;
+import org.cef.misc.IntRef;
+import org.cef.misc.StringRef;
 import org.cef.network.CefRequest;
+import org.cef.network.CefResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.withSettings;
 
 /**
  * Integration test for full request cycle:
@@ -250,5 +257,93 @@ class FullRequestCycleTest {
 
         // Then: Non-matching URL returns null
         assertNull(nonMatchingHandler);
+    }
+
+    @Test
+    void testValidationActuallyRunsForRealRoutedRequest() {
+        // Before the fix, ValidationInterceptor keyed its metadata by the registered route
+        // pattern (e.g. "/api/tasks") but looked requests up by their resolved path — which is
+        // identical here since this route has no path variables, but the interceptor's lookup
+        // used request.getPath() directly with no route match in between. This test drives a
+        // real request through the full CEF -> RouteTree -> ValidationInterceptor pipeline
+        // (not a hand-mocked ApiRequest) to prove the enum constraint on `status` is enforced.
+        ApiCefRequestHandler apiHandler = ApiCefRequestHandler.builder(mockProject)
+            .withApiRoutes()
+            .withValidation()
+            .build();
+
+        CefRequest cefRequest = MockCefFactory.createMockRequest(
+            "http://localhost:5173/api/tasks?status=not_a_real_status",
+            "GET"
+        );
+        CefBrowser browser = MockCefFactory.createMockBrowser();
+        CefFrame frame = MockCefFactory.createMockFrame();
+
+        CefResourceRequestHandler resourceRequestHandler = apiHandler.getResourceRequestHandler(
+            browser, frame, cefRequest, false, false, null, null
+        );
+        assertNotNull(resourceRequestHandler);
+
+        CefResourceHandler resourceHandler = resourceRequestHandler.getResourceHandler(browser, frame, cefRequest);
+        assertEquals(400, readStatus(resourceHandler, cefRequest));
+    }
+
+    @Test
+    void testMethodMismatchReturnsFourOhFiveNotSilentFallback() {
+        // /api/tasks only has GET and POST registered — DELETE should come back as a clean 405,
+        // not silently fall through to a null resource handler (which previously degraded into
+        // CEF's default static-resource handling).
+        ApiCefRequestHandler apiHandler = ApiCefRequestHandler.builder(mockProject)
+            .withApiRoutes()
+            .build();
+
+        CefRequest cefRequest = MockCefFactory.createMockRequest("http://localhost:5173/api/tasks", "DELETE");
+        CefBrowser browser = MockCefFactory.createMockBrowser();
+        CefFrame frame = MockCefFactory.createMockFrame();
+
+        CefResourceRequestHandler resourceRequestHandler = apiHandler.getResourceRequestHandler(
+            browser, frame, cefRequest, false, false, null, null
+        );
+        assertNotNull(resourceRequestHandler, "A structurally-known path should still route to the API handler");
+
+        CefResourceHandler resourceHandler = resourceRequestHandler.getResourceHandler(browser, frame, cefRequest);
+        assertEquals(405, readStatus(resourceHandler, cefRequest));
+    }
+
+    @Test
+    void testMethodMismatchStillFourOhFiveWhenGetFallbackIsRegistered() {
+        // Regression guard: a GET fallback (e.g. serving static webview assets for any path no
+        // API route claims) must NOT swallow a 405 for a path that DOES have a registered route,
+        // just under a different method. RouteTree.match() folds the fallback into its result,
+        // so the 405 check has to run against matchStrict() (exact/pattern only) before ever
+        // consulting match() — this is exactly the case a fallback-free test wouldn't catch.
+        Function<ApiRequest, ApiResponse<?>> fallbackHandler = req -> ApiResponse.ok("static asset");
+
+        ApiCefRequestHandler apiHandler = ApiCefRequestHandler.builder(mockProject)
+            .withApiRoutes()
+            .withFallback(HttpMethod.GET, fallbackHandler)
+            .build();
+
+        // /api/browser/notify is POST-only — GET should 405, not fall through to the GET fallback
+        CefRequest cefRequest = MockCefFactory.createMockRequest("http://localhost:5173/api/browser/notify", "GET");
+        CefBrowser browser = MockCefFactory.createMockBrowser();
+        CefFrame frame = MockCefFactory.createMockFrame();
+
+        CefResourceRequestHandler resourceRequestHandler = apiHandler.getResourceRequestHandler(
+            browser, frame, cefRequest, false, false, null, null
+        );
+        assertNotNull(resourceRequestHandler);
+
+        CefResourceHandler resourceHandler = resourceRequestHandler.getResourceHandler(browser, frame, cefRequest);
+        assertEquals(405, readStatus(resourceHandler, cefRequest));
+    }
+
+    private int readStatus(CefResourceHandler resourceHandler, CefRequest cefRequest) {
+        assertNotNull(resourceHandler);
+        CefResponse response = mock(CefResponse.class, withSettings().lenient());
+        resourceHandler.getResponseHeaders(response, new IntRef(), new StringRef());
+        org.mockito.ArgumentCaptor<Integer> statusCaptor = org.mockito.ArgumentCaptor.forClass(Integer.class);
+        verify(response).setStatus(statusCaptor.capture());
+        return statusCaptor.getValue();
     }
 }

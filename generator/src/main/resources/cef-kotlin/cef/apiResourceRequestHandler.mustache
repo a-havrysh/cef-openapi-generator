@@ -23,13 +23,25 @@ internal class ApiResourceRequestHandler(
     private val exceptionHandler: {{apiPackage}}.interceptor.ExceptionHandler?
 ) : CefResourceRequestHandlerAdapter() {
 
+    private val corsInterceptor = interceptors.filterIsInstance<{{apiPackage}}.interceptor.CorsInterceptor>().firstOrNull()
+
     override fun getResourceHandler(browser: CefBrowser, frame: CefFrame, cefRequest: CefRequest): CefResourceHandler? {
         val request = ApiRequest(cefRequest, browser, frame)
         val startTime = System.currentTimeMillis()
+        val origin = request.getHeader("Origin")
+
+        if (request.method == HttpMethod.OPTIONS && corsInterceptor != null && origin != null) {
+            return ApiResponseHandler.corsPreflightResponse(origin, corsInterceptor.allowedOrigins)
+        }
 
         return try {
-            val match = routeTree.match(request.path, request.method) ?: return null
+            val strictMatch = routeTree.matchStrict(request.path, request.method)
+            if (strictMatch == null && routeTree.hasPath(request.path)) {
+                return respond(ApiResponse.status(405, "Method Not Allowed"), origin)
+            }
+            val match = strictMatch ?: routeTree.match(request.path, request.method) ?: return null
             request.setPathVariables(match.pathVariables)
+            request.setRoutePattern(match.pattern)
 
             interceptors.forEach { it.beforeHandle(request) }
 
@@ -40,7 +52,7 @@ internal class ApiResourceRequestHandler(
                 runCatching { interceptor.afterHandle(response, duration) }
             }
 
-            ApiResponseHandler.from(response)
+            respond(response, origin)
         } catch (e: Exception) {
             interceptors.forEach { interceptor ->
                 runCatching { interceptor.onError(e, request) }
@@ -48,7 +60,16 @@ internal class ApiResourceRequestHandler(
 
             val errorResponse = exceptionHandler?.handleException(e, cefRequest)
                 ?: {{apiPackage}}.interceptor.ExceptionHandler.DEFAULT.handleException(e, cefRequest)
-            ApiResponseHandler.from(errorResponse)
+            respond(errorResponse, origin)
+        }
+    }
+
+    private fun respond(response: ApiResponse<*>, origin: String?): ApiResponseHandler {
+        val corsOrigins = corsInterceptor?.allowedOrigins
+        return if (corsOrigins != null && origin != null) {
+            ApiResponseHandler.from(response, origin, corsOrigins)
+        } else {
+            ApiResponseHandler.from(response)
         }
     }
 }

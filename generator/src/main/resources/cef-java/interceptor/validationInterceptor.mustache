@@ -57,7 +57,8 @@ public final class ValidationInterceptor implements RequestInterceptor {
 
     @Override
     public void beforeHandle(ApiRequest request) throws Exception {
-        String routeKey = request.getMethod().name() + ":" + request.getPath();
+        String pattern = request.getRoutePattern() != null ? request.getRoutePattern() : request.getPath();
+        String routeKey = request.getMethod().name() + ":" + pattern;
         RouteValidation validation = validationMetadata.get(routeKey);
 
         if (validation == null) {

@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.1.2] - 2026-07-17
+
+### Fixed (both cef-java and cef-kotlin targets)
+- **Path-parameter validation was silently bypassed for every real request.** `ValidationInterceptor` keyed its metadata by the registered route pattern (e.g. `/api/users/{id}`) but looked requests up by their *resolved* path (e.g. `/api/users/123`) — the two could never match, so required/pattern/length/enum validation never actually ran outside of unit tests that (inadvertently) mocked the request path as the pattern itself. `RouteTree`/`RouteNode` now track the originating pattern for every match and propagate it onto `ApiRequest.routePattern` (`getRoutePattern()` in Java), which `ValidationInterceptor` now keys against instead.
+- **A path that exists under a different HTTP method silently fell through to a confusing 404** (or a static-resource fallback) instead of a clean 405. `RouteTree` gained a `hasPath()` (`hasPath` in Kotlin too) check that distinguishes "no such path" from "path exists, wrong method," and both `ApiCefRequestHandler`/`ApiResourceRequestHandler` now route these to a proper 405 response.
+- **Trie route matching had no backtracking.** A literal segment that matched but dead-ended one level deeper (no handler for the request's method, or a missing grandchild) failed the whole match instead of falling back to a sibling `{template}` branch at the same level, and vice versa. Both `RouteNode` (Java) and `RouteTree`'s recursive matcher (Kotlin) now backtrack and restore any speculatively-captured path variables.
+- **`HttpMethod.valueOf(request.method)` was case-sensitive and unguarded** in `ApiCefRequestHandler`, throwing an uncaught `IllegalArgumentException` straight out of the CEF request-routing callback for any non-canonical-case or unrecognized verb. Now uses the case-insensitive `HttpMethod.fromString`, guarded so an unparseable method is treated as "not our route" instead of crashing.
+- **A required request body that was missing produced a `NullPointerException`/unchecked null instead of a 400.** Body-parameter handling now calls `requireBody()` (Java) / an inline null-check-and-throw (Kotlin), both raising a clean `BadRequestException` instead.
+- **Raw exception messages — including local file paths in some `IOException`s — were echoed verbatim into the client-facing error response** for any non-`ApiException`. The default `ExceptionHandler` now logs the full exception server-side (`java.util.logging`) and returns a generic "Internal server error" to the client.
+- **CORS response headers and OPTIONS preflight handling were dead code.** `CorsInterceptor`/`allowedOrigins` were only ever used to *reject* disallowed origins; a successful cross-origin response never got `Access-Control-Allow-Origin` back, and no route ever answered an OPTIONS preflight. `ApiResourceRequestHandler` now threads the request's `Origin` header and the configured `CorsInterceptor` through to `ApiResponseHandler`'s response-header wiring, and short-circuits OPTIONS requests into a real preflight response.
+
+### Testing
+- Added `RouteTreeIntegrationTest$BacktrackingAndMethodMismatch` (cef-java) covering the literal/template backtracking scenario, `hasPath()` true/false cases, and that `MatchResult.pattern()` exposes the registered pattern rather than the resolved path.
+- Added two `FullRequestCycleTest` cases that drive a real CEF request through the entire builder → `RouteTree` → interceptor pipeline (not a hand-constructed `ApiRequest`) to prove the validation-bypass and method-mismatch fixes hold end-to-end.
+- Full existing test suite (1412 tests, cef-java) and cef-kotlin example suite re-verified green with no changes required to any pre-existing test — the fixes are backwards-compatible with every previously-passing assertion.
+
 ## [3.1.1] - 2026-04-04
 
 ### Code Quality

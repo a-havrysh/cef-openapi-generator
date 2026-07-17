@@ -3,8 +3,10 @@ package {{apiPackage}}.routing;
 import {{apiPackage}}.protocol.HttpMethod;
 import {{apiPackage}}.protocol.ApiRequest;
 import {{apiPackage}}.protocol.ApiResponse;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -133,7 +135,7 @@ public final class RouteTree {
             }
         }
 
-        current.addHandler(method, handler);
+        current.addHandler(method, handler, pattern);
     }
 
     /**
@@ -226,25 +228,9 @@ public final class RouteTree {
      * }</pre>
      */
     public MatchResult match(String path, HttpMethod method) {
-        String cacheKey = method + ":" + path;
-        CacheEntry cached = matchCache.get(cacheKey);
-        if (cached != null) {
-            return new MatchResult(cached.handler, cached.pathVariables);
-        }
-
-        MatchResult result = matchPatternRoutes(path, method);
-        if (result != null) {
-            matchCache.put(cacheKey, new CacheEntry(result.handler, result.pathVariables));
-            return result;
-        }
-
-        // 3. Exact simple routes with method matching
-        Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> exactHandlers = exactSimpleRoutes.get(path);
-        if (exactHandlers != null) {
-            Function<ApiRequest, ApiResponse<?>> exactHandler = exactHandlers.get(method);
-            if (exactHandler != null) {
-                return new MatchResult(exactHandler, Map.of());
-            }
+        MatchResult strict = matchStrict(path, method);
+        if (strict != null) {
+            return strict;
         }
 
         // 4. Prefix routes with method matching
@@ -252,7 +238,7 @@ public final class RouteTree {
             if (path.startsWith(entry.getKey())) {
                 Function<ApiRequest, ApiResponse<?>> handler = entry.getValue().get(method);
                 if (handler != null) {
-                    return new MatchResult(handler, Map.of());
+                    return new MatchResult(handler, Map.of(), entry.getKey());
                 }
             }
         }
@@ -262,7 +248,7 @@ public final class RouteTree {
             if (path.contains(entry.getKey())) {
                 Function<ApiRequest, ApiResponse<?>> handler = entry.getValue().get(method);
                 if (handler != null) {
-                    return new MatchResult(handler, Map.of());
+                    return new MatchResult(handler, Map.of(), entry.getKey());
                 }
             }
         }
@@ -270,10 +256,94 @@ public final class RouteTree {
         // 6. Fallback handler for specific HTTP method
         Function<ApiRequest, ApiResponse<?>> fallbackHandler = fallbackHandlers.get(method);
         if (fallbackHandler != null) {
-            return new MatchResult(fallbackHandler, Map.of());
+            return new MatchResult(fallbackHandler, Map.of(), path);
         }
 
         return null;
+    }
+
+    /**
+     * Matches only exact, exact-simple, and pattern (trie) routes — never prefix/contains/
+     * fallback catch-alls. Used to tell a genuine method-mismatch on a known API path (which
+     * should 405) apart from a path that only a method-agnostic fallback (e.g. static-resource
+     * serving) would answer.
+     *
+     * @param path   URL path to match
+     * @param method HTTP method
+     * @return MatchResult with handler and path variables, or null if no strict match
+     */
+    public MatchResult matchStrict(String path, HttpMethod method) {
+        String cacheKey = method + ":" + path;
+        CacheEntry cached = matchCache.get(cacheKey);
+        if (cached != null) {
+            return new MatchResult(cached.handler, cached.pathVariables, cached.pattern);
+        }
+
+        MatchResult result = matchPatternRoutes(path, method);
+        if (result != null) {
+            matchCache.put(cacheKey, new CacheEntry(result.handler, result.pathVariables, result.pattern));
+            return result;
+        }
+
+        Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> exactHandlers = exactSimpleRoutes.get(path);
+        if (exactHandlers != null) {
+            Function<ApiRequest, ApiResponse<?>> exactHandler = exactHandlers.get(method);
+            if (exactHandler != null) {
+                return new MatchResult(exactHandler, Map.of(), path);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Checks whether some registered route structurally matches this path for ANY method —
+     * i.e. distinguishes "no such path at all" from "path exists, wrong HTTP method".
+     * Only considers exact and pattern (trie) routes: prefix/contains/fallback routes are
+     * intentionally method-agnostic catch-alls and never produce a 405 by themselves.
+     *
+     * @param path URL path to check
+     * @return true if a route pattern matches the path shape for at least one HTTP method
+     */
+    public boolean hasPath(String path) {
+        Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> exactHandlers = exactRoutes.get(path);
+        if (exactHandlers != null && !exactHandlers.isEmpty()) {
+            return true;
+        }
+
+        Map<HttpMethod, Function<ApiRequest, ApiResponse<?>>> exactSimpleHandlers = exactSimpleRoutes.get(path);
+        if (exactSimpleHandlers != null && !exactSimpleHandlers.isEmpty()) {
+            return true;
+        }
+
+        List<String> segments = splitSegments(path);
+        return hasPathMatchRecursive(root, segments, 0);
+    }
+
+    private boolean hasPathMatchRecursive(RouteNode node, List<String> segments, int index) {
+        if (index >= segments.size()) {
+            return node.hasAnyHandler();
+        }
+
+        String segment = segments.get(index);
+
+        RouteNode literalChild = node.getLiteralChildren().get(segment);
+        if (literalChild != null && hasPathMatchRecursive(literalChild, segments, index + 1)) {
+            return true;
+        }
+
+        RouteNode templateChild = node.getTemplateChild();
+        return templateChild != null && hasPathMatchRecursive(templateChild, segments, index + 1);
+    }
+
+    private List<String> splitSegments(String path) {
+        List<String> segments = new ArrayList<>();
+        for (String segment : path.split("/")) {
+            if (!segment.isEmpty()) {
+                segments.add(segment);
+            }
+        }
+        return segments;
     }
 
     /**
@@ -289,64 +359,85 @@ public final class RouteTree {
         if (exactHandlers != null) {
             Function<ApiRequest, ApiResponse<?>> handler = exactHandlers.get(method);
             if (handler != null) {
-                return new MatchResult(handler, Map.of());
+                return new MatchResult(handler, Map.of(), path);
             }
         }
 
+        List<String> segments = splitSegments(path);
         Map<String, String> pathVariables = new HashMap<>();
-        Function<ApiRequest, ApiResponse<?>> handler = traverseTree(path, method, pathVariables);
+        NodeMatch match = traverseRecursive(root, segments, 0, method, pathVariables);
 
-        if (handler != null) {
-            return new MatchResult(handler, pathVariables);
+        if (match != null) {
+            return new MatchResult(match.handler, pathVariables, match.pattern);
         }
 
         return null;
     }
 
     /**
-     * Traverse the Trie structure to find a matching route handler.
-     * Implements greedy literal-first matching: literal segments have priority
-     * over template segments at each level.
+     * Recursively traverse the Trie structure to find a matching route handler, backtracking
+     * from a literal child that turns out to be a structural dead end to try the sibling
+     * template child (and vice versa) instead of failing the whole match prematurely.
      *
-     * @param path          URL path to match
+     * @param node          current Trie node
+     * @param segments      path segments (already filtered of empty strings)
+     * @param index         current segment index
      * @param method        HTTP method
      * @param pathVariables map to populate with extracted path variables
-     * @return matched handler function, or null if no match
-     *
-     * <p>Algorithm:
-     * <ol>
-     *   <li>Split path into segments by "/"</li>
-     *   <li>For each segment, try literal child first</li>
-     *   <li>If no literal match, try template child and capture variable</li>
-     *   <li>Return handler at final node if method matches</li>
-     * </ol>
-     *
-     * <p>Example traversal for "/api/users/123" with pattern "/api/users/{id}":
-     * <pre>{@code
-     * root -> "api" (literal) -> "users" (literal) -> {id} (template, capture "123")
-     * pathVariables = {id: "123"}
-     * }</pre>
+     * @return matched handler and its originating pattern, or null if no match
      */
-    private Function<ApiRequest, ApiResponse<?>> traverseTree(String path, HttpMethod method,
-                                                               Map<String, String> pathVariables) {
-        String[] segments = path.split("/");
-        RouteNode current = root;
-
-        for (String segment : segments) {
-            if (segment.isEmpty()) {
-                continue;
-            } else if (current.getLiteralChildren().containsKey(segment)) {
-                current = current.getLiteralChildren().get(segment);
-            } else if (current.getTemplateChild() != null) {
-                RouteNode templateChild = current.getTemplateChild();
-                pathVariables.put(templateChild.getVariableName(), segment);
-                current = templateChild;
-            } else {
+    private NodeMatch traverseRecursive(RouteNode node, List<String> segments, int index,
+                                         HttpMethod method, Map<String, String> pathVariables) {
+        if (index >= segments.size()) {
+            Function<ApiRequest, ApiResponse<?>> handler = node.getHandler(method);
+            if (handler == null) {
                 return null;
+            }
+            return new NodeMatch(handler, node.getHandlerPattern(method));
+        }
+
+        String segment = segments.get(index);
+
+        RouteNode literalChild = node.getLiteralChildren().get(segment);
+        if (literalChild != null) {
+            NodeMatch result = traverseRecursive(literalChild, segments, index + 1, method, pathVariables);
+            if (result != null) {
+                return result;
             }
         }
 
-        return current.getHandler(method);
+        RouteNode templateChild = node.getTemplateChild();
+        if (templateChild != null) {
+            String varName = templateChild.getVariableName();
+            String previousValue = pathVariables.get(varName);
+            pathVariables.put(varName, segment);
+
+            NodeMatch result = traverseRecursive(templateChild, segments, index + 1, method, pathVariables);
+            if (result != null) {
+                return result;
+            }
+
+            if (previousValue != null) {
+                pathVariables.put(varName, previousValue);
+            } else {
+                pathVariables.remove(varName);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Holds a matched handler together with the route pattern it was registered under.
+     */
+    private static final class NodeMatch {
+        final Function<ApiRequest, ApiResponse<?>> handler;
+        final String pattern;
+
+        NodeMatch(Function<ApiRequest, ApiResponse<?>> handler, String pattern) {
+            this.handler = handler;
+            this.pattern = pattern;
+        }
     }
 
     /**
@@ -392,10 +483,12 @@ public final class RouteTree {
     private static final class CacheEntry {
         final Function<ApiRequest, ApiResponse<?>> handler;
         final Map<String, String> pathVariables;
+        final String pattern;
 
-        CacheEntry(Function<ApiRequest, ApiResponse<?>> handler, Map<String, String> pathVariables) {
+        CacheEntry(Function<ApiRequest, ApiResponse<?>> handler, Map<String, String> pathVariables, String pattern) {
             this.handler = handler;
             this.pathVariables = pathVariables;
+            this.pattern = pattern;
         }
     }
 
@@ -413,10 +506,12 @@ public final class RouteTree {
     public static final class MatchResult {
         private final Function<ApiRequest, ApiResponse<?>> handler;
         private final Map<String, String> pathVariables;
+        private final String pattern;
 
-        MatchResult(Function<ApiRequest, ApiResponse<?>> handler, Map<String, String> pathVariables) {
+        MatchResult(Function<ApiRequest, ApiResponse<?>> handler, Map<String, String> pathVariables, String pattern) {
             this.handler = handler;
             this.pathVariables = pathVariables;
+            this.pattern = pattern;
         }
 
         /**
@@ -435,6 +530,15 @@ public final class RouteTree {
          */
         public Map<String, String> pathVariables() {
             return pathVariables;
+        }
+
+        /**
+         * Get the original route pattern this match was registered under (e.g. "/api/users/{id}").
+         *
+         * @return the route pattern
+         */
+        public String pattern() {
+            return pattern;
         }
     }
 }

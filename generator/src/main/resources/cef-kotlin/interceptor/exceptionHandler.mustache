@@ -3,6 +3,8 @@ package {{apiPackage}}.interceptor
 import {{apiPackage}}.protocol.ApiResponse
 import {{apiPackage}}.exception.ApiException
 import org.cef.network.CefRequest
+import java.util.logging.Level
+import java.util.logging.Logger
 
 /**
  * Handler for converting exceptions to HTTP responses.
@@ -13,10 +15,15 @@ fun interface ExceptionHandler {
     fun handleException(exception: Exception, request: CefRequest): ApiResponse<*>
 
     companion object {
+        private val LOG = Logger.getLogger(ExceptionHandler::class.java.name)
+
         val DEFAULT = ExceptionHandler { exception, _ ->
             when (exception) {
                 is ApiException -> ApiResponse.status(exception.statusCode, exception.message ?: "API error")
-                else -> ApiResponse.internalServerError("Internal server error: ${exception.message}")
+                else -> {
+                    LOG.log(Level.SEVERE, "Unhandled exception in API request", exception)
+                    ApiResponse.internalServerError("Internal server error")
+                }
             }
         }
     }

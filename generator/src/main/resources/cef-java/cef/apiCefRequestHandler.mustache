@@ -91,9 +91,14 @@ public final class ApiCefRequestHandler extends CefRequestHandlerAdapter {
         }
 
         String path = extractPath(url);
-        HttpMethod method = HttpMethod.valueOf(request.getMethod());
+        HttpMethod method;
+        try {
+            method = HttpMethod.fromString(request.getMethod());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
 
-        if (routeTree.match(path, method) != null) {
+        if (routeTree.match(path, method) != null || routeTree.hasPath(path)) {
             return apiHandler;
         }
 

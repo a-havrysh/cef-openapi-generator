@@ -40,6 +40,7 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
     private final RouteTree routeTree;
     private final List<{{apiPackage}}.interceptor.RequestInterceptor> interceptors;
     private final {{apiPackage}}.interceptor.ExceptionHandler exceptionHandler;
+    private final {{apiPackage}}.interceptor.CorsInterceptor corsInterceptor;
 
     /**
      * Package-private constructor for CefRequestHandler use only.
@@ -54,6 +55,7 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
         this.routeTree = routeTree;
         this.interceptors = interceptors != null ? interceptors : java.util.Collections.emptyList();
         this.exceptionHandler = exceptionHandler != null ? exceptionHandler : {{apiPackage}}.interceptor.ExceptionHandler.DEFAULT;
+        this.corsInterceptor = findCorsInterceptor(this.interceptors);
     }
 
     /**
@@ -71,18 +73,39 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
      * @param cefRequest HTTP request details
      * @return CEF resource handler with response data, or error handler if processing fails
      */
+    private static {{apiPackage}}.interceptor.CorsInterceptor findCorsInterceptor(List<{{apiPackage}}.interceptor.RequestInterceptor> interceptors) {
+        for ({{apiPackage}}.interceptor.RequestInterceptor interceptor : interceptors) {
+            if (interceptor instanceof {{apiPackage}}.interceptor.CorsInterceptor cors) {
+                return cors;
+            }
+        }
+        return null;
+    }
+
     @Override
     public CefResourceHandler getResourceHandler(CefBrowser browser, CefFrame frame, CefRequest cefRequest) {
         ApiRequest request = new ApiRequest(cefRequest, browser, frame);
         long startTime = System.currentTimeMillis();
+        String origin = request.getHeader("Origin");
+
+        if (request.getMethod() == HttpMethod.OPTIONS && corsInterceptor != null && origin != null) {
+            return ApiResponseHandler.corsPreflightResponse(origin, corsInterceptor.getAllowedOrigins());
+        }
 
         try {
-            RouteTree.MatchResult match = routeTree.match(request.getPath(), request.getMethod());
+            RouteTree.MatchResult strictMatch = routeTree.matchStrict(request.getPath(), request.getMethod());
+            if (strictMatch == null && routeTree.hasPath(request.getPath())) {
+                return respond(ApiResponse.status(405, "Method Not Allowed"), origin);
+            }
+            RouteTree.MatchResult match = strictMatch != null
+                ? strictMatch
+                : routeTree.match(request.getPath(), request.getMethod());
             if (match == null) {
                 return null;
             }
 
             request.setPathVariables(match.pathVariables());
+            request.setRoutePattern(match.pattern());
 
             // Call beforeHandle interceptors
             for ({{apiPackage}}.interceptor.RequestInterceptor interceptor : interceptors) {
@@ -103,7 +126,7 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
                 }
             }
 
-            return ApiResponseHandler.from(response);
+            return respond(response, origin);
         } catch (Exception e) {
             // Call onError interceptors
             for ({{apiPackage}}.interceptor.RequestInterceptor interceptor : interceptors) {
@@ -116,7 +139,14 @@ public final class ApiResourceRequestHandler extends CefResourceRequestHandlerAd
 
             // Use exception handler for error response
             ApiResponse<?> errorResponse = exceptionHandler.handleException(e, cefRequest);
-            return ApiResponseHandler.from(errorResponse);
+            return respond(errorResponse, origin);
         }
+    }
+
+    private ApiResponseHandler respond(ApiResponse<?> response, String origin) {
+        if (corsInterceptor != null && origin != null) {
+            return ApiResponseHandler.from(response, origin, corsInterceptor.getAllowedOrigins());
+        }
+        return ApiResponseHandler.from(response);
     }
 }

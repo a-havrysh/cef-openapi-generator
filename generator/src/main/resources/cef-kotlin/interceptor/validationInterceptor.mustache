@@ -18,7 +18,7 @@ class ValidationInterceptor : RequestInterceptor {
     }
 
     override fun beforeHandle(request: ApiRequest) {
-        val routeKey = "${request.method.name}:${request.path}"
+        val routeKey = "${request.method.name}:${request.routePattern ?: request.path}"
         val validation = validationMetadata[routeKey] ?: return
 
         val errors = mutableListOf<ValidationError>()
